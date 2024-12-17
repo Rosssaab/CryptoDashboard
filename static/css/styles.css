@@ -1,0 +1,48 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.tabcontent {
+    display: none;
+    padding: 15px;
+}
+
+.tabcontent.active {
+    display: block;
+}
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.pie-chart {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.navbar-nav .btn-primary {
+    margin-right: 5px;
+}
+
+.navbar-nav .btn-primary:hover,
+.navbar-nav .btn-primary:focus {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.navbar-nav .btn-primary.active {
+    background-color: #004085;
+    border-color: #004085;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-select {
+    min-width: 120px;
+} 
