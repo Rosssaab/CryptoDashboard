@@ -1,0 +1,107 @@
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    padding: 10px 20px;
+    border: none;
+    background: #f0f0f0;
+    cursor: pointer;
+    margin-right: 5px;
+}
+
+.tab-button.active {
+    background: #007bff;
+    color: white;
+}
+
+.tab-content {
+    display: none;
+    padding: 20px;
+    border: 1px solid #ddd;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.controls {
+    margin-bottom: 20px;
+}
+
+select, button {
+    padding: 5px 10px;
+    margin-right: 10px;
+} 
+
+#mentions-chart {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 20px;
+}
+
+.chart-container {
+    width: calc(33.333% - 20px);
+    min-height: 300px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+@media (max-width: 1200px) {
+    .chart-container {
+        width: calc(50% - 20px);
+    }
+}
+
+@media (max-width: 768px) {
+    .chart-container {
+        width: 100%;
+    }
+} 
+
+.details-container {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.price-details, .sentiment-details {
+    margin-bottom: 20px;
+}
+
+.price-details h3, .sentiment-details h3 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.positive {
+    color: #28a745;
+}
+
+.negative {
+    color: #dc3545;
+}
+
+.coingecko-link {
+    display: inline-block;
+    color: #007bff;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.coingecko-link:hover {
+    color: #0056b3;
+} 

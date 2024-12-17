@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Crypto Analytics Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-button active" data-tab="mentions">Mentions</button>
+            <button class="tab-button" data-tab="price">Price</button>
+            <button class="tab-button" data-tab="sentiment">Sentiment</button>
+        </div>
+
+        <div class="tab-content active" id="mentions-tab">
+            <div class="controls">
+                <select id="mentions-timerange">
+                    <option value="24h">24 Hours</option>
+                    <option value="7d" selected>7 Days</option>
+                    <option value="30d">30 Days</option>
+                    <option value="90d">90 Days</option>
+                </select>
+                <button onclick="updateMentionsChart()">Update</button>
+            </div>
+            <div id="mentions-chart"></div>
+        </div>
+
+        <div class="tab-content" id="price-tab">
+            <div class="controls">
+                <select id="price-coin"></select>
+                <select id="price-timerange">
+                    <option value="24h">24 Hours</option>
+                    <option value="7d">7 Days</option>
+                    <option value="30d">30 Days</option>
+                    <option value="90d">90 Days</option>
+                </select>
+                <button onclick="updatePriceChart()">Update</button>
+            </div>
+            <div id="price-chart"></div>
+        </div>
+
+        <div class="tab-content" id="sentiment-tab">
+            <div class="controls">
+                <select id="sentiment-coin"></select>
+                <button onclick="updateSentimentChart()">Update</button>
+            </div>
+            <div id="sentiment-chart"></div>
+            <div id="coin-details"></div>
+            <div id="coingecko-link"></div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 
