@@ -2,10 +2,22 @@ import pyodbc
 from sqlalchemy import create_engine
 import pandas as pd
 from config import DB_CONNECTION_STRING
+from datetime import datetime, timedelta
 
 class DatabaseManager:
     def __init__(self):
+        # Use the connection string from config.py
         self.conn_str = DB_CONNECTION_STRING
+        self.conn = None
+        self.connect()
+
+    def connect(self):
+        """Establish database connection"""
+        try:
+            self.conn = pyodbc.connect(self.conn_str)
+            print("Database connection established")
+        except Exception as e:
+            print(f"Error connecting to database: {e}")
 
     def get_connection(self):
         """Get a raw PYODBC connection"""
@@ -93,36 +105,53 @@ class DatabaseManager:
             print("Full error details:", e.__dict__)
             return pd.DataFrame()
 
-    def get_mentions_data(self, timerange):
-        """Get mentions data for the specified time range"""
+    def get_mentions_data(self, timerange='24h'):
+        """Get mentions data for different time periods"""
         try:
-            # Convert timerange to datetime
-            if timerange == '24h':
-                start_time = "DATEADD(day, -1, GETDATE())"
-            elif timerange == '7d':
-                start_time = "DATEADD(day, -7, GETDATE())"
-            elif timerange == '30d':
-                start_time = "DATEADD(day, -30, GETDATE())"
-            else:  # 90d
-                start_time = "DATEADD(day, -90, GETDATE())"
-            
-            query = f"""
+            if not self.conn:
+                self.connect()
+                
+            # Base query to get mentions count by coin for different time periods
+            base_query = """
+            WITH MentionsCounts AS (
+                SELECT 
+                    c.symbol,
+                    COUNT(*) as mention_count,
+                    CASE 
+                        WHEN cd.timestamp >= DATEADD(HOUR, -1, GETDATE()) THEN 'hour'
+                        WHEN cd.timestamp >= DATEADD(DAY, -1, GETDATE()) THEN 'day'
+                        WHEN cd.timestamp >= DATEADD(WEEK, -1, GETDATE()) THEN 'week'
+                        WHEN cd.timestamp >= DATEADD(MONTH, -1, GETDATE()) THEN 'month'
+                    END as time_period
+                FROM chat_data cd
+                JOIN Coins c ON cd.coin_id = c.coin_id
+                WHERE cd.timestamp >= DATEADD(MONTH, -1, GETDATE())
+                GROUP BY 
+                    c.symbol,
+                    CASE 
+                        WHEN cd.timestamp >= DATEADD(HOUR, -1, GETDATE()) THEN 'hour'
+                        WHEN cd.timestamp >= DATEADD(DAY, -1, GETDATE()) THEN 'day'
+                        WHEN cd.timestamp >= DATEADD(WEEK, -1, GETDATE()) THEN 'week'
+                        WHEN cd.timestamp >= DATEADD(MONTH, -1, GETDATE()) THEN 'month'
+                    END
+            )
             SELECT 
-                c.symbol,
-                cd.sentiment_label,
-                COUNT(*) as mention_count
-            FROM chat_data cd
-            JOIN Coins c ON cd.coin_id = c.coin_id
-            WHERE cd.timestamp >= {start_time}
-            GROUP BY c.symbol, cd.sentiment_label
+                symbol as coin,
+                mention_count as mentions,
+                time_period as timeframe
+            FROM MentionsCounts
+            ORDER BY time_period, mention_count DESC
             """
             
-            engine = self.get_engine()
-            return pd.read_sql_query(query, engine)
-            
+            df = pd.read_sql(base_query, self.conn)
+            return df
+
         except Exception as e:
-            print(f"Error getting mentions data: {str(e)}")
-            return pd.DataFrame()
+            print(f"Error getting mentions data: {e}")
+            # If connection error, try to reconnect
+            if "connection" in str(e).lower():
+                self.connect()
+            return pd.DataFrame(columns=['coin', 'mentions', 'timeframe'])
 
     def get_coin_details(self, coin):
         """Get detailed information for a specific coin"""
@@ -187,3 +216,8 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error getting coin names: {str(e)}")
             return {}
+
+    def __del__(self):
+        """Close database connection when object is destroyed"""
+        if self.conn:
+            self.conn.close()

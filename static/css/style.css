@@ -105,3 +105,22 @@ select, button {
 .coingecko-link:hover {
     color: #0056b3;
 } 
+
+.link-container {
+    margin-top: 20px;
+    padding: 10px;
+    text-align: center;
+}
+
+#mentions-chart, #sentiment-chart {
+    height: 500px;
+    width: 100%;
+}
+
+.chart-container {
+    margin-top: 20px;
+    background: white;
+    border-radius: 4px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+} 

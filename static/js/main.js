@@ -1,7 +1,6 @@
 // Initialize the dashboard
 document.addEventListener('DOMContentLoaded', function() {
     loadCoins();
-    updateMentionsChart();
     setupTabHandling();
 });
 
@@ -22,88 +21,38 @@ function loadCoins() {
             // Initial chart updates
             updatePriceChart();
             updateSentimentChart();
-        });
+        })
+        .catch(error => console.error('Error loading coins:', error));
 }
 
-// Update mentions chart
-function updateMentionsChart() {
-    const timerange = document.getElementById('mentions-timerange').value;
-    fetch(`/api/mentions_chart?timerange=${timerange}`)
-        .then(response => response.json())
-        .then(data => {
-            const container = document.getElementById('mentions-chart');
-            container.innerHTML = ''; // Clear existing charts
+// Tab handling
+function setupTabHandling() {
+    const tabs = document.querySelectorAll('.tab-button');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Update active tab button
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
             
-            // Create grid layout
-            const n_cols = 3;
-            const n_rows = Math.ceil(data.coins.length / n_cols);
+            // Update active tab content
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
             
-            // Create charts
-            data.coins.forEach((coinData, index) => {
-                // Create div for this chart
-                const chartDiv = document.createElement('div');
-                chartDiv.style.width = '33%';
-                chartDiv.style.height = '300px';
-                chartDiv.style.display = 'inline-block';
-                container.appendChild(chartDiv);
-                
-                // Prepare data for Plotly
-                const values = [];
-                const labels = [];
-                const colors = [];
-                
-                Object.entries(coinData.sentiment_distribution).forEach(([label, count]) => {
-                    values.push(count);
-                    labels.push(label);
-                    colors.push(data.colors[label]);
-                });
-                
-                // Create pie chart
-                const trace = {
-                    values: values,
-                    labels: labels,
-                    type: 'pie',
-                    marker: {
-                        colors: colors
-                    },
-                    textinfo: 'percent',
-                    hoverinfo: 'label+value',
-                    hole: 0.4
-                };
-                
-                const layout = {
-                    title: {
-                        text: `${coinData.symbol}<br>Total: ${coinData.total_mentions}`,
-                        font: { size: 14 }
-                    },
-                    showlegend: false,
-                    height: 300,
-                    margin: { t: 40, b: 20, l: 20, r: 20 }
-                };
-                
-                Plotly.newPlot(chartDiv, [trace], layout, { displayModeBar: false });
-                
-                // Add click handler
-                chartDiv.on('plotly_click', () => {
-                    handlePieClick(coinData.symbol);
-                });
-            });
-        });
-}
+            const targetTab = document.getElementById(`${tab.dataset.tab}-tab`);
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
 
-// Add the pie click handler
-function handlePieClick(coin) {
-    // Update price and sentiment tabs
-    document.getElementById('price-coin').value = coin;
-    document.getElementById('sentiment-coin').value = coin;
-    
-    // Update charts
-    updatePriceChart();
-    updateSentimentChart();
-    
-    // Switch to sentiment tab
-    const sentimentTab = document.querySelector('[data-tab="sentiment"]');
-    sentimentTab.click();
+            // Update the active tab's content
+            if (tab.dataset.tab === 'price') {
+                updatePriceChart();
+            } else if (tab.dataset.tab === 'mentions') {
+                updateMentionsChart();
+            } else if (tab.dataset.tab === 'sentiment') {
+                updateSentimentChart();
+            }
+        });
+    });
 }
 
 // Update price chart
@@ -111,16 +60,169 @@ function updatePriceChart() {
     const coin = document.getElementById('price-coin').value;
     const timerange = document.getElementById('price-timerange').value;
     
+    console.log(`Fetching price data for ${coin} (${timerange})`);
+    
     fetch(`/api/price/${coin}?timerange=${timerange}`)
         .then(response => response.json())
         .then(data => {
-            const layout = {
-                title: `${coin} Price and Volume`,
-                grid: {rows: 2, columns: 1}
-            };
+            console.log('Received price data:', data);
             
-            // Process data and create charts...
-            Plotly.newPlot('price-chart', data, layout);
+            // Create price chart (top)
+            const priceTrace = {
+                x: data.timestamps,
+                y: data.prices,
+                type: 'scatter',
+                mode: 'lines',
+                name: `${coin} Price`,
+                line: {
+                    color: '#007bff',
+                    width: 1
+                }
+            };
+
+            // Create volume chart (bottom)
+            const volumeTrace = {
+                x: data.timestamps,
+                y: data.volumes,
+                type: 'bar',
+                name: `${coin} Volume`,
+                marker: {
+                    color: '#007bff'
+                }
+            };
+
+            const layout = {
+                grid: {
+                    rows: 2,
+                    columns: 1,
+                    pattern: 'independent',
+                    roworder: 'top to bottom',
+                    height: 0.7
+                },
+                xaxis: {
+                    title: 'Time',
+                    gridcolor: '#eee',
+                    zeroline: false
+                },
+                xaxis2: {
+                    title: 'Time',
+                    gridcolor: '#eee',
+                    zeroline: false
+                },
+                yaxis: {
+                    title: 'Price (USD)',
+                    gridcolor: '#eee',
+                    zeroline: false
+                },
+                yaxis2: {
+                    title: 'Volume (USD)',
+                    gridcolor: '#eee',
+                    zeroline: false
+                },
+                height: 700,
+                margin: {
+                    l: 60,
+                    r: 20,
+                    t: 30,
+                    b: 60
+                },
+                showlegend: false,
+                plot_bgcolor: 'white',
+                paper_bgcolor: 'white'
+            };
+
+            // Create the combined chart
+            Plotly.newPlot('price-chart', 
+                [
+                    {...priceTrace, yaxis: 'y1', xaxis: 'x1'}, 
+                    {...volumeTrace, yaxis: 'y2', xaxis: 'x2'}
+                ], 
+                layout,
+                {responsive: true}
+            );
+        })
+        .catch(error => {
+            console.error('Error updating price charts:', error);
+        });
+}
+
+// Update mentions chart
+function updateMentionsChart() {
+    const timerange = document.getElementById('mentions-timerange').value;
+    
+    fetch(`/api/mentions?timerange=${timerange}`)
+        .then(response => response.json())
+        .then(data => {
+            const traces = [
+                {
+                    values: data.hour_values,
+                    labels: data.hour_labels,
+                    type: 'pie',
+                    name: 'Last Hour',
+                    domain: {row: 0, column: 0},
+                    title: 'Last Hour',
+                    hole: 0.4,
+                    hoverinfo: 'label+percent+value',
+                    textinfo: 'percent',
+                    textposition: 'inside'
+                },
+                {
+                    values: data.day_values,
+                    labels: data.day_labels,
+                    type: 'pie',
+                    name: 'Last Day',
+                    domain: {row: 0, column: 1},
+                    title: 'Last Day',
+                    hole: 0.4,
+                    hoverinfo: 'label+percent+value',
+                    textinfo: 'percent',
+                    textposition: 'inside'
+                },
+                {
+                    values: data.week_values,
+                    labels: data.week_labels,
+                    type: 'pie',
+                    name: 'Last Week',
+                    domain: {row: 1, column: 0},
+                    title: 'Last Week',
+                    hole: 0.4,
+                    hoverinfo: 'label+percent+value',
+                    textinfo: 'percent',
+                    textposition: 'inside'
+                },
+                {
+                    values: data.month_values,
+                    labels: data.month_labels,
+                    type: 'pie',
+                    name: 'Last Month',
+                    domain: {row: 1, column: 1},
+                    title: 'Last Month',
+                    hole: 0.4,
+                    hoverinfo: 'label+percent+value',
+                    textinfo: 'percent',
+                    textposition: 'inside'
+                }
+            ];
+
+            const layout = {
+                grid: {rows: 2, columns: 2},
+                height: 800,
+                title: {
+                    text: 'Coin Mentions Distribution',
+                    font: { size: 24 },
+                    y: 0.95
+                },
+                showlegend: true,
+                legend: {
+                    orientation: 'h',
+                    y: -0.1
+                }
+            };
+
+            Plotly.newPlot('mentions-chart', traces, layout);
+        })
+        .catch(error => {
+            console.error('Error updating mentions chart:', error);
         });
 }
 
@@ -128,17 +230,17 @@ function updatePriceChart() {
 function updateSentimentChart() {
     const coin = document.getElementById('sentiment-coin').value;
     
-    // Update charts
-    fetch(`/api/sentiment_charts/${coin}`)
+    console.log(`Updating sentiment chart for ${coin}`);
+    
+    fetch(`/api/sentiment/${coin}`)
         .then(response => response.json())
         .then(data => {
-            if (data.error) {
-                console.error(data.error);
-                return;
-            }
+            console.log('Received sentiment data:', data);
             
-            // Create stacked bar chart
+            // Create stacked bar chart for each sentiment
             const traces = [];
+            
+            // Create a trace for each sentiment type
             Object.entries(data.sentiment_data).forEach(([sentiment, values]) => {
                 traces.push({
                     x: data.dates,
@@ -150,102 +252,53 @@ function updateSentimentChart() {
                     }
                 });
             });
-            
+
             const layout = {
-                title: `${coin} Sentiment Over Time`,
                 barmode: 'stack',
-                xaxis: { title: 'Date' },
-                yaxis: { title: 'Number of Mentions' },
+                title: {
+                    text: `Sentiment Analysis for ${coin}`,
+                    font: { size: 24 }
+                },
+                xaxis: {
+                    title: 'Date',
+                    gridcolor: '#eee'
+                },
+                yaxis: {
+                    title: 'Number of Mentions',
+                    gridcolor: '#eee'
+                },
+                height: 600,
+                plot_bgcolor: 'white',
+                paper_bgcolor: 'white',
                 showlegend: true,
-                legend: { orientation: 'h', y: -0.2 }
+                legend: {
+                    orientation: 'h',
+                    y: -0.2
+                }
             };
-            
+
             Plotly.newPlot('sentiment-chart', traces, layout);
-            
-            // Update CoinGecko link
-            updateCoinGeckoLink(coin);
-        });
-        
-    // Update coin details
-    updateCoinDetails(coin);
-}
-
-// Update coin details
-function updateCoinDetails(coin) {
-    fetch(`/api/coin_details/${coin}`)
-        .then(response => response.json())
-        .then(data => {
-            const detailsDiv = document.getElementById('coin-details');
-            
-            // Format price data
-            const priceData = data.price_data;
-            const sentimentData = data.sentiment_data;
-            
-            let html = '<div class="details-container">';
-            
-            // Price section
-            if (priceData) {
-                html += `
-                    <div class="price-details">
-                        <h3>Price Information</h3>
-                        <p>Price: $${priceData.price.toLocaleString()}</p>
-                        <p class="${priceData.change >= 0 ? 'positive' : 'negative'}">
-                            24h Change: ${priceData.change.toFixed(2)}%
-                        </p>
-                        <p>24h Volume: $${priceData.volume.toLocaleString()}</p>
-                    </div>
-                `;
-            }
-            
-            // Sentiment section
-            if (sentimentData && sentimentData.length > 0) {
-                const totalMentions = sentimentData.reduce((sum, item) => sum + item.count, 0);
-                
-                html += `
-                    <div class="sentiment-details">
-                        <h3>24h Sentiment</h3>
-                        ${sentimentData.map(item => {
-                            const percentage = ((item.count / totalMentions) * 100).toFixed(1);
-                            return `<p>${item.label}: ${item.count} (${percentage}%)</p>`;
-                        }).join('')}
-                    </div>
-                `;
-            }
-            
-            html += '</div>';
-            detailsDiv.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error updating sentiment chart:', error);
         });
 }
 
-function updateCoinGeckoLink(coin) {
-    fetch('/api/coin_names')
-        .then(response => response.json())
-        .then(coinNames => {
-            const linkDiv = document.getElementById('coingecko-link');
-            if (coin in coinNames) {
-                const url = `https://www.coingecko.com/en/coins/${coinNames[coin]}`;
-                linkDiv.innerHTML = `
-                    <a href="${url}" target="_blank" class="coingecko-link">
-                        View on CoinGecko
-                    </a>
-                `;
-            } else {
-                linkDiv.innerHTML = '';
-            }
-        });
-}
+// Add event listeners for controls
+document.addEventListener('DOMContentLoaded', function() {
+    // Price tab controls
+    const priceUpdateBtn = document.querySelector('#price-tab button');
+    if (priceUpdateBtn) {
+        priceUpdateBtn.addEventListener('click', updatePriceChart);
+    }
 
-// Tab handling
-function setupTabHandling() {
-    const tabs = document.querySelectorAll('.tab-button');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            const contents = document.querySelectorAll('.tab-content');
-            contents.forEach(content => content.classList.remove('active'));
-            document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
-        });
-    });
-} 
+    const priceTimerange = document.getElementById('price-timerange');
+    if (priceTimerange) {
+        priceTimerange.addEventListener('change', updatePriceChart);
+    }
+
+    const priceCoin = document.getElementById('price-coin');
+    if (priceCoin) {
+        priceCoin.addEventListener('change', updatePriceChart);
+    }
+}); 

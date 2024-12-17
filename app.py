@@ -33,19 +33,92 @@ def get_price_data(coin):
     else:  # 90d
         start_time = now - timedelta(days=90)
     
-    data = db_manager.get_price_data(coin, start_time)
-    return jsonify(data.to_dict(orient='records'))
+    df = db_manager.get_price_data(coin, start_time)
+    
+    # Ensure we have a timestamp column
+    if 'timestamp' not in df.columns and 'date' not in df.columns:
+        return jsonify({
+            'timestamps': [],
+            'prices': [],
+            'volumes': []
+        })
+    
+    # Use timestamp column if it exists, otherwise use date
+    time_col = 'timestamp' if 'timestamp' in df.columns else 'date'
+    
+    # Format the response
+    return jsonify({
+        'timestamps': df[time_col].dt.strftime('%Y-%m-%d %H:%M:%S').tolist(),
+        'prices': df['price'].tolist() if 'price' in df.columns else [],
+        'volumes': df['volume'].tolist() if 'volume' in df.columns else []
+    })
 
 @app.route('/api/sentiment/<coin>')
 def get_sentiment_data(coin):
-    data = db_manager.get_sentiment_data(coin)
-    return jsonify(data.to_dict(orient='records'))
+    try:
+        df = db_manager.get_sentiment_data(coin)
+        print(f"Retrieved sentiment data for {coin}:")
+        print(df)
+        print("\nDataFrame info:")
+        print(df.info())
+
+        # Convert sentiment data to match the actual DataFrame structure
+        sentiment_data = {
+            'dates': df['date'].dt.strftime('%Y-%m-%d').tolist(),
+            'sentiment_data': {
+                'Positive': df[df['sentiment_label'] == 'Positive']['count'].tolist(),
+                'Neutral': df[df['sentiment_label'] == 'Neutral']['count'].tolist(),
+                'Negative': df[df['sentiment_label'] == 'Negative']['count'].tolist()
+            },
+            'colors': {
+                'Positive': '#00ff00',    # Green
+                'Neutral': '#808080',     # Gray
+                'Negative': '#ff0000'     # Red
+            }
+        }
+        
+        return jsonify(sentiment_data)
+        
+    except Exception as e:
+        print(f"Error in get_sentiment_data: {str(e)}")
+        return jsonify({
+            'dates': [],
+            'sentiment_data': {},
+            'colors': {}
+        })
 
 @app.route('/api/mentions')
 def get_mentions_data():
-    timerange = request.args.get('timerange', '7d')
-    data = db_manager.get_mentions_data(timerange)
-    return jsonify(data.to_dict(orient='records'))
+    timerange = request.args.get('timerange', '24h')
+    
+    try:
+        df = db_manager.get_mentions_data(timerange)
+        
+        # Process data for each timeframe
+        hour_df = df[df['timeframe'] == 'hour']
+        day_df = df[df['timeframe'] == 'day']
+        week_df = df[df['timeframe'] == 'week']
+        month_df = df[df['timeframe'] == 'month']
+        
+        return jsonify({
+            'hour_labels': hour_df['coin'].tolist(),
+            'hour_values': hour_df['mentions'].tolist(),
+            'day_labels': day_df['coin'].tolist(),
+            'day_values': day_df['mentions'].tolist(),
+            'week_labels': week_df['coin'].tolist(),
+            'week_values': week_df['mentions'].tolist(),
+            'month_labels': month_df['coin'].tolist(),
+            'month_values': month_df['mentions'].tolist()
+        })
+        
+    except Exception as e:
+        print(f"Error in get_mentions_data: {str(e)}")
+        return jsonify({
+            'hour_labels': [], 'hour_values': [],
+            'day_labels': [], 'day_values': [],
+            'week_labels': [], 'week_values': [],
+            'month_labels': [], 'month_values': []
+        })
 
 @app.route('/api/coin_details/<coin>')
 def get_coin_details(coin):

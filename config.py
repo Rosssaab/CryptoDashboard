@@ -9,10 +9,10 @@ BINANCE_API_KEY = os.getenv('BINANCE_API_KEY')
 BINANCE_SECRET_KEY = os.getenv('BINANCE_SECRET_KEY')
 
 # Database Configuration
-DB_SERVER = os.getenv('DB_SERVER')
-DB_NAME = os.getenv('DB_NAME')
-DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_SERVER = 'MICROBOX\\SQLEXPRESS'
+DB_NAME = 'CryptoAiDb'
+DB_USER = 'CryptoAdm'
+DB_PASSWORD = 'oracle69'
 
 # Create the full connection string
 DB_CONNECTION_STRING = (
