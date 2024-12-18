@@ -203,83 +203,81 @@ async function updateCharts() {
             gridContainer.appendChild(chartDiv);
 
             const distribution = coinData.sentiment_distribution || {};
-            const values = [
-                distribution.Positive || 0,
-                distribution.Neutral || 0,
-                distribution.Negative || 0,
-                distribution['Very Positive'] || 0,
-                distribution['Very Negative'] || 0
-            ];
+            const chartData = [
+                { value: distribution.Positive || 0, name: 'Positive', itemStyle: { color: '#00ff88' } },
+                { value: distribution.Neutral || 0, name: 'Neutral', itemStyle: { color: '#a0a0a0' } },
+                { value: distribution.Negative || 0, name: 'Negative', itemStyle: { color: '#ff4444' } },
+                { value: distribution['Very Positive'] || 0, name: 'Very Positive', itemStyle: { color: '#00cc66' } },
+                { value: distribution['Very Negative'] || 0, name: 'Very Negative', itemStyle: { color: '#cc0000' } }
+            ].filter(item => item.value > 0);
 
-            const labels = [
-                'Positive',
-                'Neutral',
-                'Negative',
-                'Very Positive',
-                'Very Negative'
-            ];
-
-            const nonZeroData = values.map((value, index) => ({
-                value,
-                label: labels[index]
-            })).filter(item => item.value > 0);
-
-            if (nonZeroData.length === 0) {
+            if (chartData.length === 0) {
                 chartDiv.innerHTML = `<div class="alert alert-info">No sentiment data for ${coinData.symbol}</div>`;
                 return;
             }
 
-            const chartData = [{
-                values: nonZeroData.map(item => item.value),
-                labels: nonZeroData.map(item => item.label),
-                type: 'pie',
-                hole: 0.4,
-                marker: {
-                    colors: nonZeroData.map(item => {
-                        switch (item.label) {
-                            case 'Positive': return '#00ff88';
-                            case 'Very Positive': return '#00cc66';
-                            case 'Neutral': return '#a0a0a0';
-                            case 'Negative': return '#ff4444';
-                            case 'Very Negative': return '#cc0000';
-                            default: return '#999999';
+            const chart = echarts.init(chartDiv);
+            
+            const option = {
+                title: {
+                    text: `${coinData.symbol}\nTotal: ${coinData.total_mentions || 0}`,
+                    left: 'center',
+                    top: 10,
+                    textStyle: {
+                        fontSize: 14
+                    }
+                },
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b}: {c} ({d}%)'
+                },
+                series: [{
+                    name: 'Sentiment',
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    center: ['50%', '60%'],
+                    itemStyle: {
+                        borderRadius: 8,
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    },
+                    label: {
+                        show: false
+                    },
+                    emphasis: {
+                        label: {
+                            show: true,
+                            fontSize: '12',
+                            fontWeight: 'bold'
+                        },
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowOffsetX: 0,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
                         }
-                    })
-                }
-            }];
-
-            const layout = {
-                title: `${coinData.symbol}<br>Total: ${coinData.total_mentions || 0}`,
-                height: 280,
-                margin: { t: 40, b: 10, l: 10, r: 10 },
-                showlegend: false
+                    },
+                    data: chartData
+                }]
             };
 
-            const config = {
-                responsive: true,
-                displayModeBar: false
-            };
+            chart.setOption(option);
 
-            // Add click event handler
-            chartDiv.onclick = () => {
-                // Update sentiment coin select
+            // Add click handler
+            chart.on('click', (params) => {
                 const sentimentSelect = document.getElementById('sentimentCoinSelect');
                 if (sentimentSelect) {
                     sentimentSelect.value = coinData.symbol;
                 }
-
-                // Switch to Sentiment tab
+                
                 const sentimentTab = document.querySelector('[onclick="openTab(event, \'Sentiment\')"]');
                 if (sentimentTab) {
                     openTab({ target: sentimentTab }, 'Sentiment');
-                    updateSentimentChart();  // Update the sentiment chart with new coin
+                    updateSentimentChart();
                 }
-            };
+            });
 
-            // Add cursor pointer style to show it's clickable
-            chartDiv.style.cursor = 'pointer';
-
-            Plotly.newPlot(chartDiv, chartData, layout, config);
+            // Make sure charts resize properly
+            window.addEventListener('resize', () => chart.resize());
         });
 
     } catch (error) {
