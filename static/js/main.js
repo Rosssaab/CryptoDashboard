@@ -187,55 +187,115 @@ async function updateSentimentChart() {
 // Update mentions charts
 async function updateCharts() {
     try {
-        const timeRange = document.getElementById('timeRange').value;
+        const timeRange = document.getElementById('timeRange')?.value || '7d';
         const response = await fetch(`/api/mentions_chart?timerange=${timeRange}`);
         const data = await response.json();
-
+        
         if (data.error) {
             console.error('Error:', data.error);
             return;
         }
 
         const container = document.getElementById('mentions-charts');
+        if (!container) {
+            console.error('Mentions charts container not found');
+            return;
+        }
+
         container.innerHTML = ''; // Clear existing charts
+        
+        if (!data.coins || data.coins.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">No data available</div>';
+            return;
+        }
+
+        // Create grid container for charts
+        const gridContainer = document.createElement('div');
+        gridContainer.className = 'chart-grid';
+        container.appendChild(gridContainer);
 
         // Create charts for each coin
         data.coins.forEach(coinData => {
+            if (!coinData.sentiment_distribution) return;
+
             const chartDiv = document.createElement('div');
-            chartDiv.className = 'pie-chart';
-            container.appendChild(chartDiv);
+            chartDiv.className = 'chart-container';
+            gridContainer.appendChild(chartDiv);
 
-            const values = [];
-            const labels = [];
-            const colors = [];
+            // Get sentiment values, defaulting to 0 if not present
+            const distribution = coinData.sentiment_distribution || {};
+            const values = [
+                distribution.Positive || 0,
+                distribution.Neutral || 0,
+                distribution.Negative || 0,
+                distribution['Very Positive'] || 0,
+                distribution['Very Negative'] || 0
+            ];
 
-            // Process sentiment distribution
-            Object.entries(coinData.sentiment_distribution).forEach(([sentiment, count]) => {
-                values.push(count);
-                labels.push(sentiment);
-                colors.push(data.colors[sentiment]);
-            });
+            const labels = [
+                'Positive',
+                'Neutral',
+                'Negative',
+                'Very Positive',
+                'Very Negative'
+            ];
+
+            // Filter out zero values
+            const nonZeroData = values.map((value, index) => ({
+                value,
+                label: labels[index]
+            })).filter(item => item.value > 0);
+
+            if (nonZeroData.length === 0) {
+                chartDiv.innerHTML = `<div class="alert alert-info">No sentiment data for ${coinData.symbol}</div>`;
+                return;
+            }
 
             const chartData = [{
-                values: values,
-                labels: labels,
+                values: nonZeroData.map(item => item.value),
+                labels: nonZeroData.map(item => item.label),
                 type: 'pie',
                 marker: {
-                    colors: colors
-                }
+                    colors: nonZeroData.map(item => {
+                        switch(item.label) {
+                            case 'Positive': return '#00ff00';
+                            case 'Very Positive': return '#008000';
+                            case 'Neutral': return '#808080';
+                            case 'Negative': return '#ff0000';
+                            case 'Very Negative': return '#800000';
+                            default: return '#999999';
+                        }
+                    })
+                },
+                textinfo: 'label+percent',
+                hoverinfo: 'label+value+percent'
             }];
 
             const layout = {
-                title: `${coinData.symbol}<br>Total: ${coinData.total_mentions}`,
+                title: {
+                    text: `${coinData.symbol}<br>Total: ${coinData.total_mentions || 0}`,
+                    font: { size: 16 }
+                },
                 height: 300,
                 width: 300,
+                margin: { t: 50, b: 20, l: 20, r: 20 },
                 showlegend: false
             };
 
-            Plotly.newPlot(chartDiv, chartData, layout);
+            const config = {
+                responsive: true,
+                displayModeBar: false
+            };
+
+            Plotly.newPlot(chartDiv, chartData, layout, config);
         });
+
     } catch (error) {
         console.error('Error updating charts:', error);
+        const container = document.getElementById('mentions-charts');
+        if (container) {
+            container.innerHTML = `<div class="alert alert-danger">Error loading data: ${error.message}</div>`;
+        }
     }
 }
 

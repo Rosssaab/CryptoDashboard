@@ -18,10 +18,32 @@ body {
     padding: 20px;
 }
 
-.pie-chart {
+.chart-container {
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.alert {
+    margin: 20px;
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
 }
 
 .navbar-nav .btn-primary {

@@ -152,48 +152,69 @@ def get_coin_details(coin):
 def get_mentions_chart_data():
     timerange = request.args.get('timerange', '7d')
     try:
-        df = db_manager.get_mentions_data(timerange)
+        days = {
+            '24h': 1,
+            '7d': 7,
+            '30d': 30,
+            '90d': 90
+        }.get(timerange, 7)
+
+        # Use parameterized query with proper SQL Server syntax
+        query = """
+        WITH SentimentCounts AS (
+            SELECT 
+                c.symbol,
+                cd.sentiment_label,
+                COUNT(*) as mentions
+            FROM chat_data cd
+            JOIN Coins c ON cd.coin_id = c.coin_id
+            WHERE cd.timestamp >= DATEADD(day, ?, GETDATE())
+            GROUP BY c.symbol, cd.sentiment_label
+        )
+        SELECT 
+            symbol,
+            sentiment_label,
+            mentions,
+            CAST(mentions AS FLOAT) * 100.0 / SUM(mentions) OVER (PARTITION BY symbol) as percentage
+        FROM SentimentCounts
+        ORDER BY symbol, sentiment_label
+        """
+
+        # Execute query with days parameter
+        df = pd.read_sql_query(query, db_manager.get_engine(), params=(-days,))
         
-        if df.empty:
-            return jsonify({'error': 'No data available'})
+        # Process data for each coin
+        result = {'coins': []}
         
-        # Convert DataFrame to native Python types
-        df = df.copy()  # Create a copy to avoid modifying the original
-        df['mentions'] = df['mentions'].astype(float)  # Changed from 'mention_count' to 'mentions'
-        
-        # Group and sort the data
-        sorted_coins = df.groupby('coin')['mentions'].sum().sort_values(ascending=False).index.tolist()
-        
-        # Calculate sentiment percentages for each coin
-        coin_data = []
-        for coin in sorted_coins:
-            coin_df = df[df['coin'] == coin]
-            total_mentions = float(coin_df['mentions'].sum())  # Changed from 'mention_count' to 'mentions'
+        for symbol in df['symbol'].unique():
+            coin_data = df[df['symbol'] == symbol]
+            total_mentions = int(coin_data['mentions'].sum())
             
-            coin_data.append({
-                'symbol': str(coin),
-                'total_mentions': int(total_mentions),
-                'sentiment_distribution': {
-                    'Positive': 0.0,  # You might want to add actual sentiment data here
-                    'Neutral': 0.0,
-                    'Negative': 0.0
-                },
-                'positive_percentage': 0.0  # You might want to calculate this from actual data
+            # Calculate sentiment distribution
+            distribution = {
+                'Positive': 0,
+                'Neutral': 0,
+                'Negative': 0,
+                'Very Positive': 0,
+                'Very Negative': 0
+            }
+            
+            # Update distribution with actual values
+            for _, row in coin_data.iterrows():
+                sentiment = row['sentiment_label']
+                if sentiment in distribution:
+                    distribution[sentiment] = int(row['mentions'])
+            
+            result['coins'].append({
+                'symbol': symbol,
+                'total_mentions': total_mentions,
+                'sentiment_distribution': distribution
             })
         
-        # Define color mapping
-        colors = {
-            'Positive': '#00ff00',
-            'Very Positive': '#008000',
-            'Neutral': '#808080',
-            'Negative': '#ff0000',
-            'Very Negative': '#800000'
-        }
+        # Sort coins by total mentions
+        result['coins'].sort(key=lambda x: x['total_mentions'], reverse=True)
         
-        return jsonify({
-            'coins': coin_data,
-            'colors': colors
-        })
+        return jsonify(result)
         
     except Exception as e:
         print(f"Error in get_mentions_chart_data: {str(e)}")
@@ -277,7 +298,6 @@ def get_sentiment_distribution():
             FROM chat_data cd
             JOIN Coins c ON cd.coin_id = c.coin_id
             WHERE cd.timestamp >= DATEADD(day, ?, GETDATE())
-                AND cd.sentiment_label IS NOT NULL
             GROUP BY c.symbol, cd.sentiment_label
         )
         SELECT 
@@ -289,8 +309,8 @@ def get_sentiment_distribution():
         ORDER BY symbol, sentiment_label
         """
         
-        # Use params as a list with a negative value for days
-        df = pd.read_sql_query(query, db_manager.get_engine(), params=[-days])
+        # Execute query with days parameter
+        df = pd.read_sql_query(query, db_manager.get_engine(), params=(-days,))
         
         # Convert DataFrame to dictionary structure
         result = {}
@@ -314,7 +334,7 @@ def get_sentiment_distribution():
         
     except Exception as e:
         print(f"Error in get_sentiment_distribution: {str(e)}")
-        return jsonify({})  # Return empty object on error
+        return jsonify({})
 
 if __name__ == '__main__':
     app.run(debug=True) 
