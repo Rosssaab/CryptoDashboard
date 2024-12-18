@@ -151,6 +151,7 @@ def get_coin_details(coin):
 @app.route('/api/mentions_chart')
 def get_mentions_chart_data():
     timerange = request.args.get('timerange', '7d')
+    sort_by = request.args.get('sort_by', 'total')
     try:
         days = {
             '24h': 1,
@@ -211,8 +212,13 @@ def get_mentions_chart_data():
                 'sentiment_distribution': distribution
             })
         
-        # Sort coins by total mentions
-        result['coins'].sort(key=lambda x: x['total_mentions'], reverse=True)
+        # Sort the coins based on the sort_by parameter
+        result['coins'].sort(key=lambda x: (
+            -x['total_mentions'] if sort_by == 'total' else
+            -(x['sentiment_distribution']['Positive'] / x['total_mentions'] * 100 if x['total_mentions'] > 0 else 0) if sort_by == 'positive' else
+            -(x['sentiment_distribution']['Negative'] / x['total_mentions'] * 100 if x['total_mentions'] > 0 else 0) if sort_by == 'negative' else
+            x['symbol']  # sort by name
+        ))
         
         return jsonify(result)
         
@@ -220,8 +226,7 @@ def get_mentions_chart_data():
         print(f"Error in get_mentions_chart_data: {str(e)}")
         return jsonify({
             'error': str(e),
-            'coins': [],
-            'colors': {}
+            'coins': []
         })
 
 @app.route('/api/coin_names')
