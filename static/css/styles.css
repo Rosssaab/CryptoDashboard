@@ -12,10 +12,11 @@ body {
 }
 
 .chart-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 20px;
     padding: 20px;
+    width: 100%;
 }
 
 .chart-container {
@@ -23,9 +24,14 @@ body {
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     padding: 10px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    width: 250px;
+    height: 250px;
+    flex: 0 0 auto;
+}
+
+.chart-container .js-plotly-plot {
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .alert {

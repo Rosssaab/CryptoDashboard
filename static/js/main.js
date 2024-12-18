@@ -274,17 +274,18 @@ async function updateCharts() {
             const layout = {
                 title: {
                     text: `${coinData.symbol}<br>Total: ${coinData.total_mentions || 0}`,
-                    font: { size: 16 }
+                    font: { size: 14 }
                 },
-                height: 300,
-                width: 300,
-                margin: { t: 50, b: 20, l: 20, r: 20 },
-                showlegend: false
+                margin: { t: 40, b: 10, l: 10, r: 10 },
+                showlegend: false,
+                height: 230,  // Slightly less than container height to avoid scrolling
+                width: null,  // Let it be responsive
             };
 
             const config = {
                 responsive: true,
-                displayModeBar: false
+                displayModeBar: false,
+                staticPlot: true  // Makes it more performant
             };
 
             Plotly.newPlot(chartDiv, chartData, layout, config);
