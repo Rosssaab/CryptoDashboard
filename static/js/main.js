@@ -52,8 +52,7 @@ async function initializeApp() {
         await Promise.all([
             updatePriceChart(),
             updateSentimentChart(),
-            updateCharts(),
-            updateDistribution()
+            updateCharts()
         ]);
 
     } catch (error) {
@@ -171,9 +170,9 @@ async function updateCharts() {
     try {
         const timeRange = document.getElementById('timeRange')?.value || '7d';
         const sortBy = document.getElementById('sortBy')?.value || 'total';
-        const response = await fetch(`/api/mentions_chart?timerange=${timeRange}`);
+        const response = await fetch(`/api/mentions_chart?timerange=${timeRange}&sort_by=${sortBy}`);
         const data = await response.json();
-        
+
         if (data.error) {
             console.error('Error:', data.error);
             return;
@@ -186,31 +185,11 @@ async function updateCharts() {
         }
 
         container.innerHTML = '';
-        
+
         if (!data.coins || data.coins.length === 0) {
             container.innerHTML = '<div class="alert alert-info">No data available</div>';
             return;
         }
-
-        // Sort the coins based on selected criteria
-        data.coins.sort((a, b) => {
-            switch(sortBy) {
-                case 'total':
-                    return b.total_mentions - a.total_mentions;
-                case 'positive':
-                    const aPos = (a.sentiment_distribution.Positive || 0) / a.total_mentions * 100;
-                    const bPos = (b.sentiment_distribution.Positive || 0) / b.total_mentions * 100;
-                    return bPos - aPos;
-                case 'negative':
-                    const aNeg = (a.sentiment_distribution.Negative || 0) / a.total_mentions * 100;
-                    const bNeg = (b.sentiment_distribution.Negative || 0) / b.total_mentions * 100;
-                    return bNeg - aNeg;
-                case 'name':
-                    return a.symbol.localeCompare(b.symbol);
-                default:
-                    return 0;
-            }
-        });
 
         const gridContainer = document.createElement('div');
         gridContainer.className = 'chart-grid';
@@ -254,38 +233,51 @@ async function updateCharts() {
                 values: nonZeroData.map(item => item.value),
                 labels: nonZeroData.map(item => item.label),
                 type: 'pie',
+                hole: 0.4,
                 marker: {
                     colors: nonZeroData.map(item => {
-                        switch(item.label) {
-                            case 'Positive': return '#00ff00';
-                            case 'Very Positive': return '#008000';
-                            case 'Neutral': return '#808080';
-                            case 'Negative': return '#ff0000';
-                            case 'Very Negative': return '#800000';
+                        switch (item.label) {
+                            case 'Positive': return '#00ff88';
+                            case 'Very Positive': return '#00cc66';
+                            case 'Neutral': return '#a0a0a0';
+                            case 'Negative': return '#ff4444';
+                            case 'Very Negative': return '#cc0000';
                             default: return '#999999';
                         }
                     })
-                },
-                textinfo: 'label+percent',
-                hoverinfo: 'label+value+percent'
+                }
             }];
 
             const layout = {
-                title: {
-                    text: `${coinData.symbol}<br>Total: ${coinData.total_mentions || 0}`,
-                    font: { size: 14 }
-                },
+                title: `${coinData.symbol}<br>Total: ${coinData.total_mentions || 0}`,
+                height: 280,
                 margin: { t: 40, b: 10, l: 10, r: 10 },
-                showlegend: false,
-                height: 230,
-                width: null,
+                showlegend: false
             };
 
             const config = {
                 responsive: true,
-                displayModeBar: false,
-                staticPlot: true
+                displayModeBar: false
             };
+
+            // Add click event handler
+            chartDiv.onclick = () => {
+                // Update sentiment coin select
+                const sentimentSelect = document.getElementById('sentimentCoinSelect');
+                if (sentimentSelect) {
+                    sentimentSelect.value = coinData.symbol;
+                }
+
+                // Switch to Sentiment tab
+                const sentimentTab = document.querySelector('[onclick="openTab(event, \'Sentiment\')"]');
+                if (sentimentTab) {
+                    openTab({ target: sentimentTab }, 'Sentiment');
+                    updateSentimentChart();  // Update the sentiment chart with new coin
+                }
+            };
+
+            // Add cursor pointer style to show it's clickable
+            chartDiv.style.cursor = 'pointer';
 
             Plotly.newPlot(chartDiv, chartData, layout, config);
         });
@@ -299,90 +291,11 @@ async function updateCharts() {
     }
 }
 
-async function updateDistribution() {
-    try {
-        const timeRange = document.getElementById('distributionTimeRange')?.value || '7d';
-        const response = await fetch(`/api/sentiment_distribution?timerange=${timeRange}`);
-        const data = await response.json();
-
-        if (!data || data.error) {
-            console.error('API Error:', data?.error || 'No data received');
-            return;
-        }
-
-        const container = document.getElementById('distribution-charts');
-        if (!container) {
-            console.error('Distribution charts container not found');
-            return;
-        }
-
-        container.innerHTML = '';
-
-        const colors = {
-            'Positive': '#00ff00',
-            'Very Positive': '#008000',
-            'Neutral': '#808080',
-            'Negative': '#ff0000',
-            'Very Negative': '#800000'
-        };
-
-        if (Object.keys(data).length === 0) {
-            container.innerHTML = '<div class="alert alert-info">No data available</div>';
-            return;
-        }
-
-        Object.entries(data).forEach(([symbol, info]) => {
-            if (!info.distribution) return;
-
-            const chartDiv = document.createElement('div');
-            chartDiv.className = 'pie-chart';
-            container.appendChild(chartDiv);
-
-            const values = [];
-            const labels = [];
-            const chartColors = [];
-
-            Object.entries(info.distribution).forEach(([sentiment, stats]) => {
-                if (stats.percentage > 0) {
-                    values.push(stats.percentage);
-                    labels.push(sentiment);
-                    chartColors.push(colors[sentiment] || '#999999');
-                }
-            });
-
-            const chartData = [{
-                values: values,
-                labels: labels,
-                type: 'pie',
-                marker: {
-                    colors: chartColors
-                }
-            }];
-
-            const layout = {
-                title: `${symbol}<br>Total: ${info.total || 0}`,
-                height: 300,
-                width: 300,
-                showlegend: false
-            };
-
-            Plotly.newPlot(chartDiv, chartData, layout);
-        });
-    } catch (error) {
-        console.error('Error updating distribution:', error);
-        const container = document.getElementById('distribution-charts');
-        if (container) {
-            container.innerHTML = `<div class="alert alert-danger">Error loading data: ${error.message}</div>`;
-        }
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Time range select event listeners
     const timeRangeSelects = [
         'timeRange',
-        'priceTimeRange',
-        'distributionTimeRange'
+        'priceTimeRange'
     ];
 
     timeRangeSelects.forEach(id => {
@@ -391,7 +304,6 @@ document.addEventListener('DOMContentLoaded', function() {
             select.addEventListener('change', () => {
                 if (id === 'timeRange') updateCharts();
                 else if (id === 'priceTimeRange') updatePriceChart();
-                else if (id === 'distributionTimeRange') updateDistribution();
             });
         }
     });
