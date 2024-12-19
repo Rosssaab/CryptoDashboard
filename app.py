@@ -4,10 +4,19 @@ import pandas as pd
 import numpy as np
 from utils.database import DatabaseManager
 from utils.chart_utils import ChartManager
+import pyodbc
+import time
 
 app = Flask(__name__)
 db_manager = DatabaseManager()
 chart_manager = ChartManager()
+
+# Your existing database connection setup
+connection_string = "DRIVER={SQL Server};SERVER=localhost;DATABASE=CryptoAiDb;Trusted_Connection=yes;"
+
+# Create a function to get database connection
+def get_db_connection():
+    return pyodbc.connect(connection_string)
 
 @app.route('/')
 def index():
@@ -340,6 +349,102 @@ def get_sentiment_distribution():
     except Exception as e:
         print(f"Error in get_sentiment_distribution: {str(e)}")
         return jsonify({})
+
+@app.route('/api/predictions/<symbol>')
+def get_predictions(symbol):
+    timeframe = request.args.get('timeframe', '24h')
+    
+    # Map timeframe to column names
+    timeframe_map = {
+        '24h': ('prediction_24h', 'actual_price_24h', 'prediction_error_24h'),
+        '7d': ('prediction_7d', 'actual_price_7d', 'prediction_error_7d'),
+        '30d': ('prediction_30d', 'actual_price_30d', 'prediction_error_30d'),
+        '90d': ('prediction_90d', 'actual_price_90d', 'prediction_error_90d')
+    }
+    
+    pred_col, actual_col, error_col = timeframe_map.get(timeframe)
+    
+    query = f"""
+        SELECT 
+            p.prediction_id,
+            p.prediction_date,
+            p.current_price,
+            p.{pred_col} as predicted_price,
+            p.{actual_col} as actual_price,
+            p.confidence_score,
+            p.accuracy_score,
+            p.market_conditions,
+            p.volatility_index,
+            p.{error_col} as prediction_error,
+            p.model_version,
+            c.symbol,
+            pfi.feature_name,
+            pfi.importance_score
+        FROM predictions p
+        JOIN Coins c ON p.coin_id = c.coin_id
+        LEFT JOIN prediction_feature_importance pfi ON p.prediction_id = pfi.prediction_id
+        WHERE c.symbol = ?
+        ORDER BY p.prediction_date DESC
+    """
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, symbol)
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return jsonify({
+                'predictions': [],
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'message': f'No predictions available for {symbol} with {timeframe} timeframe'
+            })
+        
+        # Group predictions with their feature importance
+        predictions = {}
+        for row in rows:
+            pred_id = row.prediction_id
+            if pred_id not in predictions:
+                predictions[pred_id] = {
+                    'prediction_id': pred_id,
+                    'prediction_date': row.prediction_date.isoformat(),
+                    'current_price': float(row.current_price) if row.current_price else None,
+                    'predicted_price': float(row.predicted_price) if row.predicted_price else None,
+                    'actual_price': float(row.actual_price) if row.actual_price else None,
+                    'confidence_score': float(row.confidence_score) if row.confidence_score else None,
+                    'accuracy_score': float(row.accuracy_score) if row.accuracy_score else None,
+                    'market_conditions': row.market_conditions,
+                    'volatility_index': float(row.volatility_index) if row.volatility_index else None,
+                    'prediction_error': float(row.prediction_error) if row.prediction_error else None,
+                    'model_version': row.model_version,
+                    'features': []
+                }
+            
+            if row.feature_name and row.importance_score:
+                predictions[pred_id]['features'].append({
+                    'name': row.feature_name,
+                    'importance': float(row.importance_score)
+                })
+        
+        return jsonify({
+            'predictions': list(predictions.values()),
+            'symbol': symbol,
+            'timeframe': timeframe
+        })
+        
+    except Exception as e:
+        print(f"Error in get_predictions: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'predictions': [],
+            'symbol': symbol,
+            'timeframe': timeframe
+        }), 500
+        
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True) 

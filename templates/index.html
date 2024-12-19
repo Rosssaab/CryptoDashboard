@@ -9,7 +9,7 @@
     <!-- Bootstrap Cosmo theme -->
     <link href="https://bootswatch.com/5/cosmo/bootstrap.min.css" rel="stylesheet">
 
-    <!-- ECharts (add this before Plotly) -->
+    <!-- ECharts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 
     <!-- Plotly -->
@@ -29,6 +29,7 @@
                         onclick="openTab(event, 'Mentions')">Mentions</button>
                     <button class="nav-link btn btn-primary" onclick="openTab(event, 'Price')">Price</button>
                     <button class="nav-link btn btn-primary" onclick="openTab(event, 'Sentiment')">Sentiment</button>
+                    <button class="nav-link btn btn-primary" onclick="openTab(event, 'Predictions')">Predictions</button>
                 </div>
             </div>
         </nav>
@@ -108,6 +109,42 @@
             </div>
             <div id="sentiment-chart"></div>
         </div>
+
+        <div id="Predictions" class="tabcontent">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <label for="predictionCoinSelect">Coin:</label>
+                            <select id="predictionCoinSelect" class="form-select">
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <label for="predictionTimeframe">Timeframe:</label>
+                            <select id="predictionTimeframe" class="form-select">
+                                <option value="24h">24 Hours</option>
+                                <option value="7d">7 Days</option>
+                                <option value="30d">30 Days</option>
+                                <option value="90d">90 Days</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Add this div for the predictions table -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Prediction History</h5>
+                </div>
+                <div class="card-body">
+                    <div id="predictions-table" class="table-responsive">
+                        <!-- Table will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Bootstrap Bundle with Popper -->
@@ -115,6 +152,59 @@
 
     <!-- Custom JavaScript -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <!-- Add this right before the closing body tag -->
+    <div class="modal fade" id="insightModal" tabindex="-1" aria-labelledby="insightModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="insightModalLabel">Coin Insights</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div id="modalPieChart" style="height: 300px; width: 100%;"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Sentiment Summary</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="sentimentStats"></div>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Trend Analysis</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="trendAnalysis"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Insights & Recommendations</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="insights"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="viewDetailedSentiment()">View Detailed Sentiment</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
