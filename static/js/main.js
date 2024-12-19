@@ -1,3 +1,16 @@
+// Helper functions for sentiment formatting and styling
+function formatSentiment(sentiment) {
+    return sentiment.toFixed(3);
+}
+
+function getSentimentClass(sentiment) {
+    if (sentiment > 0.5) return 'sentiment-box sentiment-very-positive';
+    if (sentiment > 0.1) return 'sentiment-box sentiment-positive';
+    if (sentiment < -0.5) return 'sentiment-box sentiment-very-negative';
+    if (sentiment < -0.1) return 'sentiment-box sentiment-negative';
+    return 'sentiment-box sentiment-neutral';
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const requiredElements = {
         coinSelect: document.getElementById('coinSelect'),
@@ -134,6 +147,11 @@ function openTab(evt, tabName) {
     const selectedTab = document.getElementById(tabName);
     if (selectedTab) {
         selectedTab.style.display = "block";
+        
+        // Initialize specific tab functionality
+        if (tabName === 'DataLoads') {
+            initializeDataLoads();
+        }
     }
 
     if (evt.target) {
@@ -474,16 +492,19 @@ function viewDetailedSentiment() {
 
 async function updatePredictions() {
     const coinSelect = document.getElementById('predictionCoinSelect');
-    const timeframe = document.getElementById('predictionTimeframe');
+    const hoursSelect = document.getElementById('predictionHours');
+    const groupBySelect = document.getElementById('predictionGroupBy');
     const tableDiv = document.getElementById('predictions-table');
     
-    if (!coinSelect || !timeframe || !tableDiv) {
+    if (!coinSelect || !hoursSelect || !groupBySelect || !tableDiv) {
         console.error('Required elements not found');
         return;
     }
 
     try {
-        const response = await fetch(`/api/predictions/${coinSelect.value}?timeframe=${timeframe.value}`);
+        const response = await fetch(
+            `/api/predictions/${coinSelect.value}?hours=${hoursSelect.value}&groupBy=${groupBySelect.value}`
+        );
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -495,78 +516,73 @@ async function updatePredictions() {
             throw new Error(data.error);
         }
 
-        // Create the predictions table
-        const table = `
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Current Price</th>
-                        <th>Predicted Price</th>
-                        <th>Actual Price</th>
-                        <th>Error</th>
-                        <th>Accuracy</th>
-                        <th>Confidence</th>
-                        <th>Market</th>
-                        <th>Details</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.predictions.map(pred => {
-                        const predDate = new Date(pred.prediction_date).toLocaleString();
-                        const isCompleted = pred.actual_price !== null;
-                        const accuracy = pred.accuracy_score;
-                        
-                        return `
+        // Create table based on grouping
+        let tableHtml = '';
+        if (data.groupBy !== 'none') {
+            tableHtml = `
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            ${data.groupBy.includes('source') ? '<th>Source</th>' : ''}
+                            ${data.groupBy.includes('coin') ? '<th>Coin</th>' : ''}
+                            <th>Count</th>
+                            <th>Avg Confidence</th>
+                            <th>Avg Accuracy</th>
+                            <th>Avg Error</th>
+                            <th>Latest Prediction</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.predictions.map(p => `
                             <tr>
-                                <td>${predDate}</td>
-                                <td>$${pred.current_price?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '-'}</td>
-                                <td>$${pred.predicted_price?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '-'}</td>
-                                <td>${pred.actual_price ? 
-                                    '$' + pred.actual_price.toLocaleString(undefined, {minimumFractionDigits: 2}) : 
-                                    '<span class="text-muted">Pending</span>'}</td>
-                                <td>${pred.prediction_error ? 
-                                    `<span class="text-${Math.abs(pred.prediction_error) < 5 ? 'success' : 
-                                    Math.abs(pred.prediction_error) < 10 ? 'warning' : 'danger'}">
-                                        ${pred.prediction_error > 0 ? '+' : ''}${pred.prediction_error.toFixed(2)}%
-                                    </span>` : 
-                                    '-'}</td>
-                                <td>${isCompleted ? 
-                                    `<span class="badge ${accuracy >= 90 ? 'bg-success' : 
-                                    accuracy >= 70 ? 'bg-warning' : 'bg-danger'}">${accuracy.toFixed(1)}%</span>` : 
-                                    '-'}</td>
-                                <td>
-                                    <div class="progress" style="height: 20px;">
-                                        <div class="progress-bar ${pred.confidence_score >= 80 ? 'bg-success' : 
-                                            pred.confidence_score >= 60 ? 'bg-warning' : 'bg-danger'}" 
-                                            role="progressbar" 
-                                            style="width: ${pred.confidence_score}%">
-                                            ${pred.confidence_score.toFixed(1)}%
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="badge bg-${pred.market_conditions === 'Bullish' ? 'success' : 
-                                        pred.market_conditions === 'Bearish' ? 'danger' : 'warning'}">
-                                        ${pred.market_conditions}
-                                    </span>
-                                    <br>
-                                    <small>VIX: ${pred.volatility_index.toFixed(1)}</small>
-                                </td>
-                                <td>
-                                    <button class="btn btn-sm btn-info" 
-                                            onclick='showPredictionDetails(${JSON.stringify(pred)})'>
-                                        View
-                                    </button>
-                                </td>
+                                ${p.source ? `<td>${p.source}</td>` : ''}
+                                ${p.symbol ? `<td>${p.symbol}</td>` : ''}
+                                <td>${p.prediction_count}</td>
+                                <td>${formatPercent(p.avg_confidence)}</td>
+                                <td>${formatPercent(p.avg_accuracy)}</td>
+                                <td>${formatNumber(p.avg_error)}</td>
+                                <td>${formatDateTime(p.latest_prediction)}</td>
                             </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
-        `;
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            tableHtml = `
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Coin</th>
+                            <th>Source</th>
+                            <th>Current Price</th>
+                            <th>Predicted</th>
+                            <th>Actual</th>
+                            <th>Error</th>
+                            <th>Confidence</th>
+                            <th>Accuracy</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.predictions.map(p => `
+                            <tr>
+                                <td>${formatDateTime(p.prediction_date)}</td>
+                                <td>${p.symbol}</td>
+                                <td>${p.source}</td>
+                                <td>${formatPrice(p.current_price)}</td>
+                                <td>${formatPrice(p.predicted_price)}</td>
+                                <td>${formatPrice(p.actual_price)}</td>
+                                <td>${formatNumber(p.prediction_error)}</td>
+                                <td>${formatPercent(p.confidence_score)}</td>
+                                <td>${formatPercent(p.accuracy_score)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
 
-        tableDiv.innerHTML = table;
+        tableDiv.innerHTML = tableHtml;
 
     } catch (error) {
         console.error('Error updating predictions:', error);
@@ -575,6 +591,23 @@ async function updatePredictions() {
                 Error loading predictions: ${error.message}
             </div>`;
     }
+}
+
+// Add these helper functions if you don't have them already
+function formatDateTime(isoString) {
+    return isoString ? new Date(isoString).toLocaleString() : 'N/A';
+}
+
+function formatPrice(price) {
+    return price ? `$${price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 'N/A';
+}
+
+function formatPercent(value) {
+    return value ? `${(value * 100).toFixed(1)}%` : 'N/A';
+}
+
+function formatNumber(value) {
+    return value ? value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A';
 }
 
 function showPredictionDetails(prediction) {
@@ -639,44 +672,61 @@ function createPredictionModal() {
 }
 
 async function initializeDataLoads() {
-    // Set default date to today
-    const today = new Date();
-    const dateString = today.toISOString().split('T')[0];
-    const loadDateSelect = document.getElementById('loadDateSelect');
-    if (loadDateSelect) {
-        loadDateSelect.value = dateString;
-    }
+    console.log("Initializing Data Loads tab...");
     
-    // Add event listeners
-    ['loadDateSelect', 'chatSourceSelect', 'loadCoinSelect'].forEach(id => {
-        const element = document.getElementById(id);
+    // Add event listeners for the Data Loads filters
+    const elements = {
+        hoursSelect: document.getElementById('loadHoursSelect'),
+        sourceSelect: document.getElementById('chatSourceSelect'),
+        coinSelect: document.getElementById('loadCoinSelect')
+    };
+
+    // Log which elements were found
+    Object.entries(elements).forEach(([name, element]) => {
+        console.log(`${name}: ${element ? 'Found' : 'Not found'}`);
         if (element) {
             element.addEventListener('change', updateDataLoadStats);
         }
     });
-    
-    // Initial load
+
+    // Initial load of data
     await updateDataLoadStats();
 }
 
 async function updateDataLoadStats() {
-    const dateSelect = document.getElementById('loadDateSelect');
+    const hoursSelect = document.getElementById('loadHoursSelect');
     const sourceSelect = document.getElementById('chatSourceSelect');
     const coinSelect = document.getElementById('loadCoinSelect');
     const statsTable = document.getElementById('dataLoadStats');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const totalRecordsElement = document.getElementById('totalRecordsValue');
+    const avgSentimentElement = document.getElementById('averageSentimentValue');
     
-    if (!dateSelect || !sourceSelect || !coinSelect || !statsTable) {
-        console.error('Required elements not found');
+    if (!hoursSelect || !sourceSelect || !coinSelect || !statsTable || !loadingSpinner) {
+        console.error('Required elements not found:', {
+            hoursSelect: !!hoursSelect,
+            sourceSelect: !!sourceSelect,
+            coinSelect: !!coinSelect,
+            statsTable: !!statsTable,
+            loadingSpinner: !!loadingSpinner,
+            totalRecordsElement: !!totalRecordsElement,
+            avgSentimentElement: !!avgSentimentElement
+        });
         return;
     }
 
     try {
+        // Show loading spinner
+        loadingSpinner.style.display = 'flex';
+        statsTable.style.display = 'none';
+
         const params = new URLSearchParams({
-            date: dateSelect.value,
+            hours: hoursSelect.value,
             source: sourceSelect.value,
             coin: coinSelect.value
         });
 
+        console.log('Fetching data with params:', params.toString());
         const response = await fetch(`/api/data_loads?${params}`);
         
         if (!response.ok) {
@@ -684,35 +734,62 @@ async function updateDataLoadStats() {
         }
         
         const data = await response.json();
+        console.log('Received data:', data);
 
         if (data.error) {
             throw new Error(data.error);
         }
 
-        // Update coins dropdown if needed
-        if (data.coins && coinSelect.options.length <= 1) {
-            coinSelect.innerHTML = '<option value="all">All Coins</option>';
-            data.coins.forEach(coin => {
-                coinSelect.add(new Option(coin.symbol, coin.symbol));
-            });
-        }
-
-        // Update sources dropdown if needed
+        // Update sources dropdown if empty
         if (data.sources && sourceSelect.options.length <= 1) {
-            sourceSelect.innerHTML = '<option value="all">All Sources</option>';
             data.sources.forEach(source => {
                 sourceSelect.add(new Option(source.name, source.id));
             });
         }
 
+        // Update coins dropdown if empty
+        if (data.coins && coinSelect.options.length <= 1) {
+            data.coins.forEach(coin => {
+                coinSelect.add(new Option(coin.symbol, coin.symbol));
+            });
+        }
+
         // Update stats table
-        statsTable.innerHTML = data.stats.map(stat => `
-            <tr>
-                <td>${stat.window}</td>
-                <td>${stat.chat_count.toLocaleString()}</td>
-                <td>${stat.last_update ? new Date(stat.last_update).toLocaleString() : 'N/A'}</td>
-            </tr>
-        `).join('');
+        statsTable.innerHTML = data.stats.length > 0 
+            ? data.stats.map(stat => `
+                <tr>
+                    <td>${stat.source}</td>
+                    <td>${stat.symbol}</td>
+                    <td>${stat.count.toLocaleString()}</td>
+                    <td>
+                        <div class="sentiment-box ${getSentimentClass(stat.sentiment)}">
+                            ${formatSentiment(stat.sentiment)}
+                        </div>
+                    </td>
+                </tr>
+            `).join('')
+            : `<tr><td colspan="4" class="text-center">No data found for the selected filters</td></tr>`;
+
+        // Calculate totals
+        let totalRecords = 0;
+        let weightedSentiment = 0;
+        
+        data.stats.forEach(stat => {
+            totalRecords += stat.count;
+            weightedSentiment += stat.sentiment * stat.count;
+        });
+
+        const averageSentiment = totalRecords > 0 ? weightedSentiment / totalRecords : 0;
+
+        // Update summary stats if elements exist
+        if (totalRecordsElement) {
+            totalRecordsElement.textContent = totalRecords.toLocaleString();
+        }
+        
+        if (avgSentimentElement) {
+            avgSentimentElement.textContent = formatSentiment(averageSentiment);
+            avgSentimentElement.className = `sentiment-box ${getSentimentClass(averageSentiment)}`;
+        }
 
     } catch (error) {
         console.error('Error updating data load stats:', error);
@@ -723,5 +800,9 @@ async function updateDataLoadStats() {
                 </td>
             </tr>
         `;
+    } finally {
+        // Hide loading spinner and show table
+        loadingSpinner.style.display = 'none';
+        statsTable.style.display = '';
     }
 }

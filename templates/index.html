@@ -153,22 +153,40 @@
                 <div class="card-body">
                     <div class="row align-items-center g-3">
                         <div class="col-auto">
-                            <label for="loadDateSelect">Load Date:</label>
-                            <input type="date" id="loadDateSelect" class="form-control">
+                            <label for="loadHoursSelect">Time Window:</label>
+                            <select id="loadHoursSelect" class="form-select">
+                                <option value="1">Last Hour</option>
+                                <option value="3">Last 3 Hours</option>
+                                <option value="6">Last 6 Hours</option>
+                                <option value="12">Last 12 Hours</option>
+                                <option value="24">Last 24 Hours</option>
+                                <option value="48">Last 48 Hours</option>
+                                <option value="72">Last 72 Hours</option>
+                            </select>
                         </div>
                         <div class="col-auto">
                             <label for="chatSourceSelect">Chat Source:</label>
                             <select id="chatSourceSelect" class="form-select">
                                 <option value="all">All Sources</option>
-                                <!-- Will be populated by JavaScript -->
                             </select>
                         </div>
                         <div class="col-auto">
                             <label for="loadCoinSelect">Coin:</label>
                             <select id="loadCoinSelect" class="form-select">
                                 <option value="all">All Coins</option>
-                                <!-- Will be populated by JavaScript -->
                             </select>
+                        </div>
+                        <div class="col-auto ms-auto">
+                            <div class="d-flex align-items-center">
+                                <div class="me-4">
+                                    <strong>Total Records:</strong>
+                                    <span id="totalRecordsValue" class="ms-2">0</span>
+                                </div>
+                                <div>
+                                    <strong>Average Sentiment:</strong>
+                                    <div id="averageSentimentValue" class="sentiment-box ms-2 d-inline-block">0.000</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -176,20 +194,27 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Chat Data Load Statistics</h5>
+                    <h5 class="mb-0">Data Load Statistics</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
+                        <!-- Add loading spinner container -->
+                        <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span>Loading data...</span>
+                        </div>
+                        
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>Time Window</th>
-                                    <th>Chat Records</th>
-                                    <th>Last Update</th>
+                                    <th>Chat Source</th>
+                                    <th>Coin</th>
+                                    <th>Records Loaded</th>
                                 </tr>
                             </thead>
                             <tbody id="dataLoadStats">
-                                <!-- Will be populated by JavaScript -->
                             </tbody>
                         </table>
                     </div>
