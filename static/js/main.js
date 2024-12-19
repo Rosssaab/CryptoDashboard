@@ -117,6 +117,11 @@ function setupEventListeners() {
             select.addEventListener('change', updatePredictions);
         }
     });
+
+    // Initialize Data Loads tab if we're on it
+    if (document.getElementById('DataLoads')) {
+        initializeDataLoads();
+    }
 }
 
 function openTab(evt, tabName) {
@@ -479,14 +484,15 @@ async function updatePredictions() {
 
     try {
         const response = await fetch(`/api/predictions/${coinSelect.value}?timeframe=${timeframe.value}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
 
-        if (!data.predictions || data.predictions.length === 0) {
-            tableDiv.innerHTML = `
-                <div class="alert alert-info">
-                    ${data.message || 'No predictions available for this timeframe.'}
-                </div>`;
-            return;
+        if (data.error) {
+            throw new Error(data.error);
         }
 
         // Create the predictions table
@@ -630,4 +636,92 @@ function createPredictionModal() {
     document.body.appendChild(modalDiv.firstChild);
     
     return document.getElementById('predictionDetailsModal');
+}
+
+async function initializeDataLoads() {
+    // Set default date to today
+    const today = new Date();
+    const dateString = today.toISOString().split('T')[0];
+    const loadDateSelect = document.getElementById('loadDateSelect');
+    if (loadDateSelect) {
+        loadDateSelect.value = dateString;
+    }
+    
+    // Add event listeners
+    ['loadDateSelect', 'chatSourceSelect', 'loadCoinSelect'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', updateDataLoadStats);
+        }
+    });
+    
+    // Initial load
+    await updateDataLoadStats();
+}
+
+async function updateDataLoadStats() {
+    const dateSelect = document.getElementById('loadDateSelect');
+    const sourceSelect = document.getElementById('chatSourceSelect');
+    const coinSelect = document.getElementById('loadCoinSelect');
+    const statsTable = document.getElementById('dataLoadStats');
+    
+    if (!dateSelect || !sourceSelect || !coinSelect || !statsTable) {
+        console.error('Required elements not found');
+        return;
+    }
+
+    try {
+        const params = new URLSearchParams({
+            date: dateSelect.value,
+            source: sourceSelect.value,
+            coin: coinSelect.value
+        });
+
+        const response = await fetch(`/api/data_loads?${params}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        // Update coins dropdown if needed
+        if (data.coins && coinSelect.options.length <= 1) {
+            coinSelect.innerHTML = '<option value="all">All Coins</option>';
+            data.coins.forEach(coin => {
+                coinSelect.add(new Option(coin.symbol, coin.symbol));
+            });
+        }
+
+        // Update sources dropdown if needed
+        if (data.sources && sourceSelect.options.length <= 1) {
+            sourceSelect.innerHTML = '<option value="all">All Sources</option>';
+            data.sources.forEach(source => {
+                sourceSelect.add(new Option(source.name, source.id));
+            });
+        }
+
+        // Update stats table
+        statsTable.innerHTML = data.stats.map(stat => `
+            <tr>
+                <td>${stat.window}</td>
+                <td>${stat.chat_count.toLocaleString()}</td>
+                <td>${stat.last_update ? new Date(stat.last_update).toLocaleString() : 'N/A'}</td>
+            </tr>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error updating data load stats:', error);
+        statsTable.innerHTML = `
+            <tr>
+                <td colspan="3" class="text-center text-danger">
+                    Error loading data: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
 }

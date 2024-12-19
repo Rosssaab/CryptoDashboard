@@ -17,6 +17,7 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
 
 <body>
@@ -30,6 +31,7 @@
                     <button class="nav-link btn btn-primary" onclick="openTab(event, 'Price')">Price</button>
                     <button class="nav-link btn btn-primary" onclick="openTab(event, 'Sentiment')">Sentiment</button>
                     <button class="nav-link btn btn-primary" onclick="openTab(event, 'Predictions')">Predictions</button>
+                    <button class="nav-link btn btn-primary" onclick="openTab(event, 'DataLoads')">Data Loads</button>
                 </div>
             </div>
         </nav>
@@ -141,6 +143,55 @@
                 <div class="card-body">
                     <div id="predictions-table" class="table-responsive">
                         <!-- Table will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="DataLoads" class="tabcontent">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row align-items-center g-3">
+                        <div class="col-auto">
+                            <label for="loadDateSelect">Load Date:</label>
+                            <input type="date" id="loadDateSelect" class="form-control">
+                        </div>
+                        <div class="col-auto">
+                            <label for="chatSourceSelect">Chat Source:</label>
+                            <select id="chatSourceSelect" class="form-select">
+                                <option value="all">All Sources</option>
+                                <!-- Will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <label for="loadCoinSelect">Coin:</label>
+                            <select id="loadCoinSelect" class="form-select">
+                                <option value="all">All Coins</option>
+                                <!-- Will be populated by JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Chat Data Load Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Time Window</th>
+                                    <th>Chat Records</th>
+                                    <th>Last Update</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataLoadStats">
+                                <!-- Will be populated by JavaScript -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
