@@ -70,8 +70,7 @@ async function initializeApp() {
         // Initialize all coin selects
         const selects = [
             'coinSelect',
-            'sentimentCoinSelect',
-            'predictionCoinSelect'
+            'sentimentCoinSelect'
         ];
 
         selects.forEach(selectId => {
@@ -172,6 +171,8 @@ function openTab(evt, tabName) {
         // Initialize specific tab functionality
         if (tabName === 'DataLoads') {
             initializeDataLoads();
+        } else if (tabName === 'Predictions') {
+            initializePredictions();
         }
     }
 
@@ -512,105 +513,104 @@ function viewDetailedSentiment() {
 }
 
 async function updatePredictions() {
-    const coinSelect = document.getElementById('predictionCoinSelect');
-    const hoursSelect = document.getElementById('predictionHours');
-    const groupBySelect = document.getElementById('predictionGroupBy');
-    const tableDiv = document.getElementById('predictions-table');
+    console.log("Updating predictions...");
     
-    if (!coinSelect || !hoursSelect || !groupBySelect || !tableDiv) {
-        console.error('Required elements not found');
+    const elements = {
+        predictionsCoinSelect: document.getElementById('predictionsCoinSelect'),
+        predictionsContainer: document.getElementById('predictionsContainer')
+    };
+
+    // Log which elements were found
+    Object.entries(elements).forEach(([name, element]) => {
+        console.log(`${name}: ${element ? 'Found' : 'Not found'}`);
+    });
+
+    if (!elements.predictionsCoinSelect || !elements.predictionsContainer) {
+        console.error('Required elements not found:', {
+            predictionsCoinSelect: !!elements.predictionsCoinSelect,
+            predictionsContainer: !!elements.predictionsContainer
+        });
         return;
     }
 
     try {
-        const response = await fetch(
-            `/api/predictions/${coinSelect.value}?hours=${hoursSelect.value}&groupBy=${groupBySelect.value}`
-        );
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
+        const selectedCoin = elements.predictionsCoinSelect.value;
+        console.log("Selected coin:", selectedCoin);
+
+        elements.predictionsContainer.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+
+        const response = await fetch(`/api/predictions/${selectedCoin}`);
         const data = await response.json();
+        
+        console.log("Received predictions data:", data);
 
         if (data.error) {
             throw new Error(data.error);
         }
 
-        // Create table based on grouping
-        let tableHtml = '';
-        if (data.groupBy !== 'none') {
-            tableHtml = `
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            ${data.groupBy.includes('source') ? '<th>Source</th>' : ''}
-                            ${data.groupBy.includes('coin') ? '<th>Coin</th>' : ''}
-                            <th>Count</th>
-                            <th>Avg Confidence</th>
-                            <th>Avg Accuracy</th>
-                            <th>Avg Error</th>
-                            <th>Latest Prediction</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${data.predictions.map(p => `
-                            <tr>
-                                ${p.source ? `<td>${p.source}</td>` : ''}
-                                ${p.symbol ? `<td>${p.symbol}</td>` : ''}
-                                <td>${p.prediction_count}</td>
-                                <td>${formatPercent(p.avg_confidence)}</td>
-                                <td>${formatPercent(p.avg_accuracy)}</td>
-                                <td>${formatNumber(p.avg_error)}</td>
-                                <td>${formatDateTime(p.latest_prediction)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        } else {
-            tableHtml = `
+        // Update the predictions display with a table format
+        elements.predictionsContainer.innerHTML = `
+            <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
                         <tr>
                             <th>Date</th>
-                            <th>Coin</th>
-                            <th>Source</th>
+                            <th>Symbol</th>
                             <th>Current Price</th>
-                            <th>Predicted</th>
-                            <th>Actual</th>
-                            <th>Error</th>
+                            <th colspan="4">Predictions</th>
+                            <th colspan="4">Actual Prices</th>
+                            <th>Sentiment</th>
                             <th>Confidence</th>
                             <th>Accuracy</th>
+                        </tr>
+                        <tr>
+                            <th></th>
+                            <th></th>
+                            <th></th>
+                            <th>24h</th>
+                            <th>7d</th>
+                            <th>30d</th>
+                            <th>90d</th>
+                            <th>24h</th>
+                            <th>7d</th>
+                            <th>30d</th>
+                            <th>90d</th>
+                            <th></th>
+                            <th></th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         ${data.predictions.map(p => `
                             <tr>
-                                <td>${formatDateTime(p.prediction_date)}</td>
+                                <td>${new Date(p.prediction_date).toLocaleString()}</td>
                                 <td>${p.symbol}</td>
-                                <td>${p.source}</td>
-                                <td>${formatPrice(p.current_price)}</td>
-                                <td>${formatPrice(p.predicted_price)}</td>
-                                <td>${formatPrice(p.actual_price)}</td>
-                                <td>${formatNumber(p.prediction_error)}</td>
-                                <td>${formatPercent(p.confidence_score)}</td>
-                                <td>${formatPercent(p.accuracy_score)}</td>
+                                <td>$${p.current_price?.toFixed(2) || 'N/A'}</td>
+                                <td>$${p.prediction_24h?.toFixed(2) || 'N/A'}</td>
+                                <td>$${p.prediction_7d?.toFixed(2) || 'N/A'}</td>
+                                <td>$${p.prediction_30d?.toFixed(2) || 'N/A'}</td>
+                                <td>$${p.prediction_90d?.toFixed(2) || 'N/A'}</td>
+                                <td>$${p.actual_price_24h?.toFixed(2) || 'N/A'}</td>
+                                <td>$${p.actual_price_7d?.toFixed(2) || 'N/A'}</td>
+                                <td>$${p.actual_price_30d?.toFixed(2) || 'N/A'}</td>
+                                <td>$${p.actual_price_90d?.toFixed(2) || 'N/A'}</td>
+                                <td>${p.sentiment_score?.toFixed(2) || 'N/A'}</td>
+                                <td>${(p.confidence_score * 100)?.toFixed(1)}%</td>
+                                <td>${(p.accuracy_score * 100)?.toFixed(1)}%</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
-            `;
-        }
-
-        tableDiv.innerHTML = tableHtml;
+            </div>
+        `;
 
     } catch (error) {
         console.error('Error updating predictions:', error);
-        tableDiv.innerHTML = `
+        elements.predictionsContainer.innerHTML = `
             <div class="alert alert-danger">
                 Error loading predictions: ${error.message}
-            </div>`;
+            </div>
+        `;
     }
 }
 
@@ -831,5 +831,40 @@ async function updateDataLoadStats() {
         // Hide loading spinner and show table
         loadingSpinner.style.display = 'none';
         statsTable.style.display = '';
+    }
+}
+
+async function initializePredictions() {
+    console.log("Initializing Predictions tab...");
+    
+    const predictionsCoinSelect = document.getElementById('predictionsCoinSelect');
+    
+    if (predictionsCoinSelect) {
+        try {
+            // Clear existing options and add "All Coins"
+            predictionsCoinSelect.innerHTML = '<option value="all">All Coins</option>';
+            
+            // Fetch and add coins
+            const response = await fetch('/api/coins');
+            const coins = await response.json();
+            
+            console.log("Fetched coins for predictions:", coins);
+            
+            coins.forEach(coin => {
+                const option = new Option(coin, coin);
+                predictionsCoinSelect.add(option);
+            });
+            
+            // Add change event listener
+            predictionsCoinSelect.addEventListener('change', updatePredictions);
+            
+            // Initial load
+            await updatePredictions();
+            
+        } catch (error) {
+            console.error("Error initializing predictions:", error);
+        }
+    } else {
+        console.error("Predictions coin select element not found");
     }
 }

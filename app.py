@@ -355,77 +355,61 @@ def get_sentiment_distribution():
 
 @app.route('/api/predictions/<symbol>')
 def get_predictions(symbol):
-    timeframe = request.args.get('timeframe', '24h')
-    
-    print(f"\n=== Predictions Request ===")
-    print(f"Symbol: {symbol}")
-    print(f"Timeframe: {timeframe}")
+    hours = request.args.get('hours', '24')
     
     try:
-        print("Attempting database connection...")
         conn = get_db_connection()
-        print("Database connection successful")
         cursor = conn.cursor()
 
-        # First check if the symbol exists
-        print(f"Checking if symbol {symbol} exists...")
-        check_symbol_query = """
-            SELECT coin_id 
-            FROM Coins 
-            WHERE symbol = ?
+        # Base query parts
+        select_fields = """
+            p.prediction_id,
+            p.prediction_date,
+            p.current_price,
+            p.prediction_24h,
+            p.actual_price_24h,
+            p.confidence_score,
+            p.accuracy_score,
+            p.market_conditions,
+            p.volatility_index,
+            p.prediction_error_24h,
+            p.model_version,
+            c.symbol
         """
-        cursor.execute(check_symbol_query, symbol)
-        coin_result = cursor.fetchone()
-        
-        if not coin_result:
-            print(f"Symbol {symbol} not found in database")
-            return jsonify({
-                'error': f'Invalid symbol: {symbol}',
-                'predictions': []
-            }), 400
 
-        print(f"Symbol {symbol} found with coin_id: {coin_result.coin_id}")
-
-        # Get predictions with all related data
-        predictions_query = """
-            SELECT 
-                p.prediction_id,
-                p.prediction_date,
-                p.current_price,
-                p.prediction_24h,
-                p.prediction_7d,
-                p.prediction_30d,
-                p.prediction_90d,
-                p.actual_price_24h,
-                p.actual_price_7d,
-                p.actual_price_30d,
-                p.actual_price_90d,
-                p.confidence_score,
-                p.accuracy_score,
-                p.market_conditions,
-                p.volatility_index,
-                p.prediction_error_24h,
-                p.prediction_error_7d,
-                p.prediction_error_30d,
-                p.prediction_error_90d,
-                p.model_version,
-                c.symbol
+        from_clause = """
             FROM predictions p
             JOIN Coins c ON p.coin_id = c.coin_id
-            WHERE c.symbol = ?
+        """
+
+        where_clause = "WHERE DATEDIFF(HOUR, p.prediction_date, GETDATE()) <= ?"
+        params = [int(hours)]
+
+        if symbol.lower() != 'all':
+            where_clause += " AND c.symbol = ?"
+            params.append(symbol)
+
+        query = f"""
+            SELECT {select_fields}
+            {from_clause}
+            {where_clause}
             ORDER BY p.prediction_date DESC
         """
-        
-        print("Executing predictions query...")
-        cursor.execute(predictions_query, symbol)
-        rows = cursor.fetchall()
-        print(f"Found {len(rows)} prediction records")
 
-        predictions = []
+        print("\n=== SQL Query ===")
+        print(query)
+        print("Parameters:", params)
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        print(f"Found {len(rows)} records")
+
+        results = []
         for row in rows:
-            pred_dict = {
+            result = {
                 'prediction_id': row.prediction_id,
                 'prediction_date': row.prediction_date.isoformat() if row.prediction_date else None,
+                'symbol': row.symbol,
                 'current_price': float(row.current_price) if row.current_price else None,
                 'predicted_price': float(row.prediction_24h) if row.prediction_24h else None,
                 'actual_price': float(row.actual_price_24h) if row.actual_price_24h else None,
@@ -434,34 +418,14 @@ def get_predictions(symbol):
                 'market_conditions': row.market_conditions,
                 'volatility_index': float(row.volatility_index) if row.volatility_index else None,
                 'prediction_error': float(row.prediction_error_24h) if row.prediction_error_24h else None,
-                'model_version': row.model_version,
-                'features': []
+                'model_version': row.model_version
             }
-            
-            # Get feature importance for this prediction
-            feature_query = """
-                SELECT feature_name, importance_score
-                FROM prediction_feature_importance
-                WHERE prediction_id = ?
-                ORDER BY importance_score DESC
-            """
-            cursor.execute(feature_query, row.prediction_id)
-            features = cursor.fetchall()
-            
-            pred_dict['features'] = [
-                {
-                    'name': f.feature_name,
-                    'importance': float(f.importance_score) if f.importance_score else 0
-                }
-                for f in features
-            ]
-            
-            predictions.append(pred_dict)
+            results.append(result)
 
         return jsonify({
-            'predictions': predictions,
+            'predictions': results,
             'symbol': symbol,
-            'timeframe': timeframe
+            'hours': hours
         })
 
     except Exception as e:
@@ -477,106 +441,110 @@ def get_predictions(symbol):
         
     finally:
         if 'conn' in locals():
-            print("Closing database connection")
             conn.close()
 
 @app.route('/api/data_loads')
 def get_data_loads():
-    load_date = request.args.get('date')
+    hours = request.args.get('hours', '24')
     source = request.args.get('source', 'all')
     coin = request.args.get('coin', 'all')
     
     print(f"\n=== Data Loads Request ===")
-    print(f"Date: {load_date}")
+    print(f"Hours: {hours}")
     print(f"Source: {source}")
     print(f"Coin: {coin}")
     
     try:
-        print("Attempting database connection...")
         conn = get_db_connection()
-        print("Database connection successful")
         cursor = conn.cursor()
 
-        print("Fetching coins for dropdown...")
-        cursor.execute("""
-            SELECT coin_id, symbol 
-            FROM Coins 
-            ORDER BY symbol
-        """)
-        coins = [{"id": str(row.coin_id), "symbol": row.symbol} for row in cursor.fetchall()]
+        # Get coins for dropdown
+        print("Fetching coins...")
+        cursor.execute("SELECT coin_id, symbol FROM Coins ORDER BY symbol")
+        coins = [{"id": str(row[0]), "symbol": row[1]} for row in cursor.fetchall()]
         print(f"Found {len(coins)} coins")
 
-        print("Fetching chat sources...")
-        cursor.execute("""
-            SELECT source_id, source_name 
-            FROM chat_source 
-            ORDER BY source_name
-        """)
-        sources = [{"id": str(row.source_id), "name": row.source_name} for row in cursor.fetchall()]
+        # Get chat sources for dropdown
+        print("Fetching sources...")
+        cursor.execute("SELECT source_id, source_name FROM chat_source ORDER BY source_name")
+        sources = [{"id": str(row[0]), "name": row[1]} for row in cursor.fetchall()]
         print(f"Found {len(sources)} sources")
 
-        # Time windows in hours
-        windows = [
-            (1, "Past Hour"),
-            (12, "Past 12 Hours"),
-            (24, "Past 24 Hours"),
-            (72, "Past 3 Days"),
-            (168, "Past 7 Days")
-        ]
+        # Main query for stats
+        params = [int(hours)]  # Initialize params list
+        where_clauses = ["cd.timestamp >= DATEADD(HOUR, -?, GETDATE())"]  # Initialize where_clauses list
 
+        if source != 'all':
+            where_clauses.append("cd.source_id = ?")
+            params.append(int(source))
+
+        if coin != 'all':
+            where_clauses.append("c.symbol = ?")
+            params.append(coin)
+
+        where_clause = " AND ".join(where_clauses)
+
+        query = """
+            SELECT 
+                cs.source_name,
+                c.symbol,
+                COUNT(cd.chat_id) as record_count,
+                AVG(CONVERT(float, cd.sentiment_score)) as avg_sentiment
+            FROM chat_data cd
+            INNER JOIN Coins c 
+                ON cd.coin_id = c.coin_id
+            INNER JOIN chat_source cs 
+                ON cd.source_id = cs.source_id
+            WHERE {where_clause}
+            GROUP BY 
+                cs.source_name,
+                c.symbol
+            ORDER BY 
+                cs.source_name,
+                c.symbol
+        """.format(where_clause=where_clause)
+
+        # Debug output
+        print("\n=== SQL Query ===")
+        print("Query template:")
+        print(query)
+        print("\nParameters:", params)
+        
+        # Show complete SQL with parameters
+        debug_sql = query
+        for param in params:
+            debug_sql = debug_sql.replace('?', str(param) if isinstance(param, (int, float)) else f"'{param}'", 1)
+        print("\nComplete SQL with parameters:")
+        print(debug_sql)
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        print(f"Found {len(rows)} result rows")
+        
         stats = []
-        for hours, label in windows:
-            print(f"\nProcessing window: {label}")
-            params = []
-            where_clauses = []
+        for row in rows:
+            try:
+                stats.append({
+                    'source': str(row[0]),    # source_name
+                    'symbol': str(row[1]),    # symbol
+                    'count': int(row[2]),     # record_count
+                    'sentiment': float(row[3]) if row[3] is not None else 0.0  # avg_sentiment
+                })
+            except Exception as e:
+                print(f"Error processing row {row}: {str(e)}")
 
-            where_clauses.append(f"cd.timestamp >= DATEADD(HOUR, -{hours}, GETDATE())")
-            
-            if load_date:
-                where_clauses.append("CONVERT(DATE, cd.timestamp) = ?")
-                params.append(load_date)
-
-            if coin != 'all':
-                where_clauses.append("c.symbol = ?")
-                params.append(coin)
-
-            if source != 'all':
-                where_clauses.append("cd.source_id = ?")
-                params.append(source)
-
-            where_clause = " AND ".join(where_clauses)
-
-            chat_query = f"""
-                SELECT 
-                    COUNT(*) as chat_count,
-                    MAX(cd.timestamp) as last_update
-                FROM chat_data cd
-                JOIN Coins c ON cd.coin_id = c.coin_id
-                JOIN chat_source cs ON cd.source_id = cs.source_id
-                WHERE {where_clause}
-            """
-            
-            print(f"Executing query with params: {params}")
-            print(f"Query: {chat_query}")
-            
-            cursor.execute(chat_query, params)
-            result = cursor.fetchone()
-            chat_count = result.chat_count if result else 0
-            last_update = result.last_update if result and result.last_update else None
-            
-            print(f"Results - Count: {chat_count}, Last Update: {last_update}")
-
-            stats.append({
-                "window": label,
-                "chat_count": chat_count,
-                "last_update": last_update.isoformat() if last_update else None
-            })
-
-        return jsonify({
+        result = {
             "coins": coins,
             "sources": sources,
             "stats": stats
-        })
+        }
+        
+        print("\nReturning result:")
+        print(f"- {len(coins)} coins")
+        print(f"- {len(sources)} sources")
+        print(f"- {len(stats)} stat rows")
+        
+        return jsonify(result)
 
     except Exception as e:
         print("\n=== Error in Data Loads ===")
@@ -584,8 +552,13 @@ def get_data_loads():
         print(f"Error message: {str(e)}")
         print("Full traceback:")
         traceback.print_exc()
+        
         return jsonify({
-            "error": f"Server error: {type(e).__name__} - {str(e)}"
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "coins": [],
+            "sources": [],
+            "stats": []
         }), 500
 
     finally:
