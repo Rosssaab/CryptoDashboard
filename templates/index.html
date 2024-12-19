@@ -176,15 +176,26 @@
                                 <option value="all">All Coins</option>
                             </select>
                         </div>
+                        <div class="col-auto">
+                            <label for="sortBySelect">Sort By:</label>
+                            <select id="sortBySelect" class="form-select">
+                                <option value="source">Source</option>
+                                <option value="coin">Coin</option>
+                                <option value="count_desc">Records (High to Low)</option>
+                                <option value="count_asc">Records (Low to High)</option>
+                                <option value="sentiment_desc">Sentiment (High to Low)</option>
+                                <option value="sentiment_asc">Sentiment (Low to High)</option>
+                            </select>
+                        </div>
                         <div class="col-auto ms-auto">
                             <div class="d-flex align-items-center">
                                 <div class="me-4">
                                     <strong>Total Records:</strong>
-                                    <span id="totalRecordsValue" class="ms-2">0</span>
+                                    <span id="totalRecordsValue" class="badge bg-primary ms-2">0</span>
                                 </div>
                                 <div>
                                     <strong>Average Sentiment:</strong>
-                                    <div id="averageSentimentValue" class="sentiment-box ms-2 d-inline-block">0.000</div>
+                                    <span id="averageSentimentValue" class="sentiment-box ms-2">0.000</span>
                                 </div>
                             </div>
                         </div>

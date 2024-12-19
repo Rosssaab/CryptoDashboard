@@ -1,4 +1,4 @@
-// Helper functions for sentiment formatting and styling
+// Helper functions for sentiment formatting, styling, and sorting
 function formatSentiment(sentiment) {
     return sentiment.toFixed(3);
 }
@@ -9,6 +9,27 @@ function getSentimentClass(sentiment) {
     if (sentiment < -0.5) return 'sentiment-box sentiment-very-negative';
     if (sentiment < -0.1) return 'sentiment-box sentiment-negative';
     return 'sentiment-box sentiment-neutral';
+}
+
+function sortStats(stats, sortBy) {
+    return [...stats].sort((a, b) => {
+        switch(sortBy) {
+            case 'source':
+                return a.source.localeCompare(b.source);
+            case 'coin':
+                return a.symbol.localeCompare(b.symbol);
+            case 'count_desc':
+                return b.count - a.count;
+            case 'count_asc':
+                return a.count - b.count;
+            case 'sentiment_desc':
+                return b.sentiment - a.sentiment;
+            case 'sentiment_asc':
+                return a.sentiment - b.sentiment;
+            default:
+                return 0;
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -674,14 +695,15 @@ function createPredictionModal() {
 async function initializeDataLoads() {
     console.log("Initializing Data Loads tab...");
     
-    // Add event listeners for the Data Loads filters
+    // Add event listeners for all filters
     const elements = {
         hoursSelect: document.getElementById('loadHoursSelect'),
         sourceSelect: document.getElementById('chatSourceSelect'),
-        coinSelect: document.getElementById('loadCoinSelect')
+        coinSelect: document.getElementById('loadCoinSelect'),
+        sortBySelect: document.getElementById('sortBySelect')
     };
 
-    // Log which elements were found
+    // Log which elements were found and add event listeners
     Object.entries(elements).forEach(([name, element]) => {
         console.log(`${name}: ${element ? 'Found' : 'Not found'}`);
         if (element) {
@@ -701,6 +723,7 @@ async function updateDataLoadStats() {
     const loadingSpinner = document.getElementById('loadingSpinner');
     const totalRecordsElement = document.getElementById('totalRecordsValue');
     const avgSentimentElement = document.getElementById('averageSentimentValue');
+    const sortBySelect = document.getElementById('sortBySelect');
     
     if (!hoursSelect || !sourceSelect || !coinSelect || !statsTable || !loadingSpinner) {
         console.error('Required elements not found:', {
@@ -709,8 +732,7 @@ async function updateDataLoadStats() {
             coinSelect: !!coinSelect,
             statsTable: !!statsTable,
             loadingSpinner: !!loadingSpinner,
-            totalRecordsElement: !!totalRecordsElement,
-            avgSentimentElement: !!avgSentimentElement
+            sortBySelect: !!sortBySelect
         });
         return;
     }
@@ -754,9 +776,35 @@ async function updateDataLoadStats() {
             });
         }
 
-        // Update stats table
-        statsTable.innerHTML = data.stats.length > 0 
-            ? data.stats.map(stat => `
+        // Calculate totals
+        let totalRecords = 0;
+        let weightedSentiment = 0;
+        
+        data.stats.forEach(stat => {
+            totalRecords += stat.count;
+            weightedSentiment += stat.sentiment * stat.count;
+        });
+
+        const averageSentiment = totalRecords > 0 ? weightedSentiment / totalRecords : 0;
+
+        // Update summary stats
+        if (totalRecordsElement) {
+            totalRecordsElement.textContent = totalRecords.toLocaleString();
+        }
+        
+        if (avgSentimentElement) {
+            avgSentimentElement.textContent = formatSentiment(averageSentiment);
+            avgSentimentElement.className = `sentiment-box ${getSentimentClass(averageSentiment)}`;
+        }
+
+        // Sort the data if sort select exists
+        console.log('Sorting by:', sortBySelect ? sortBySelect.value : 'default');
+        const sortedStats = sortBySelect ? sortStats(data.stats, sortBySelect.value) : data.stats;
+        console.log('Sorted stats:', sortedStats);
+
+        // Update stats table with sorted data
+        statsTable.innerHTML = sortedStats.length > 0 
+            ? sortedStats.map(stat => `
                 <tr>
                     <td>${stat.source}</td>
                     <td>${stat.symbol}</td>
@@ -770,32 +818,11 @@ async function updateDataLoadStats() {
             `).join('')
             : `<tr><td colspan="4" class="text-center">No data found for the selected filters</td></tr>`;
 
-        // Calculate totals
-        let totalRecords = 0;
-        let weightedSentiment = 0;
-        
-        data.stats.forEach(stat => {
-            totalRecords += stat.count;
-            weightedSentiment += stat.sentiment * stat.count;
-        });
-
-        const averageSentiment = totalRecords > 0 ? weightedSentiment / totalRecords : 0;
-
-        // Update summary stats if elements exist
-        if (totalRecordsElement) {
-            totalRecordsElement.textContent = totalRecords.toLocaleString();
-        }
-        
-        if (avgSentimentElement) {
-            avgSentimentElement.textContent = formatSentiment(averageSentiment);
-            avgSentimentElement.className = `sentiment-box ${getSentimentClass(averageSentiment)}`;
-        }
-
     } catch (error) {
         console.error('Error updating data load stats:', error);
         statsTable.innerHTML = `
             <tr>
-                <td colspan="3" class="text-center text-danger">
+                <td colspan="4" class="text-center text-danger">
                     Error loading data: ${error.message}
                 </td>
             </tr>
