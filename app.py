@@ -27,7 +27,14 @@ def index():
 
 @app.route('/api/coins')
 def get_coins():
+    # Get the tab parameter, defaulting to None if not provided
+    tab = request.args.get('tab')
+    
     coins = db_manager.get_available_coins()
+    
+    # Add "All" option for all tabs
+    coins.insert(0, "All")
+        
     return jsonify(coins)
 
 @app.route('/api/price/<coin>')
@@ -68,40 +75,76 @@ def get_price_data(coin):
 @app.route('/api/sentiment/<coin>')
 def get_sentiment_data(coin):
     try:
+        print(f"\n=== Starting sentiment request for coin: {coin} ===")
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        query = """
-            SELECT 
-                CAST(timestamp AS DATE) as date,
-                sentiment_label,
-                COUNT(*) as count
-            FROM chat_data cd
-            JOIN Coins c ON cd.coin_id = c.coin_id
-            WHERE c.symbol = ?
-            GROUP BY CAST(timestamp AS DATE), sentiment_label
-            ORDER BY date
-        """
-        
-        cursor.execute(query, [coin])
+        # Main query
+        if coin.lower() == 'all':
+            print("Executing query for all coins")
+            query = """
+                SELECT 
+                    CONVERT(DATE, timestamp) as date,
+                    COALESCE(sentiment_label, 'Neutral') as sentiment_label,
+                    COUNT(*) as count
+                FROM chat_data cd
+                JOIN Coins c ON cd.coin_id = c.coin_id
+                WHERE sentiment_label IN ('Positive', 'Neutral', 'Negative')
+                GROUP BY CONVERT(DATE, timestamp), sentiment_label
+                ORDER BY date
+            """
+            cursor.execute(query)
+        else:
+            print(f"Executing query for specific coin: {coin}")
+            query = """
+                SELECT 
+                    CONVERT(DATE, timestamp) as date,
+                    COALESCE(sentiment_label, 'Neutral') as sentiment_label,
+                    COUNT(*) as count
+                FROM chat_data cd
+                JOIN Coins c ON cd.coin_id = c.coin_id
+                WHERE c.symbol = ?
+                AND sentiment_label IN ('Positive', 'Neutral', 'Negative')
+                GROUP BY CONVERT(DATE, timestamp), sentiment_label
+                ORDER BY date
+            """
+            cursor.execute(query, [coin])
+            
         rows = cursor.fetchall()
+        print(f"Query returned {len(rows)} rows")
         
-        # Create lists for each column
-        dates = []
-        labels = []
-        counts = []
+        # Debug: Print the first row to see its structure
+        if rows:
+            print(f"First row structure: {rows[0]}")
+            print(f"First row type: {type(rows[0])}")
         
-        for row in rows:
-            dates.append(row[0])
-            labels.append(row[1])
-            counts.append(row[2])
+        # Convert rows to list of lists
+        data = [[row[0], row[1], row[2]] for row in rows]
         
-        # Create DataFrame with explicit column names
-        df = pd.DataFrame({
-            'date': dates,
-            'sentiment_label': labels,
-            'count': counts
-        })
+        # Create DataFrame
+        df = pd.DataFrame(data, columns=['date', 'sentiment_label', 'count'])
+        
+        print(f"DataFrame shape: {df.shape}")
+        print(f"DataFrame columns: {df.columns}")
+        print(f"First few rows:\n{df.head()}")
+        
+        if df.empty:
+            return jsonify({
+                'dates': [],
+                'sentiment_data': {
+                    'Positive': [],
+                    'Neutral': [],
+                    'Negative': []
+                },
+                'colors': {
+                    'Positive': '#28a745',
+                    'Neutral': '#6c757d',
+                    'Negative': '#dc3545'
+                }
+            })
+        
+        # Convert date to datetime
+        df['date'] = pd.to_datetime(df['date'])
         
         # Get unique dates for x-axis
         unique_dates = df['date'].dt.strftime('%Y-%m-%d').unique().tolist()
@@ -118,21 +161,23 @@ def get_sentiment_data(coin):
             date_str = date.strftime('%Y-%m-%d')
             date_idx = unique_dates.index(date_str)
             for _, row in group.iterrows():
-                sentiment_data[row['sentiment_label']][date_idx] = row['count']
+                sentiment = row['sentiment_label']
+                if sentiment in sentiment_data:
+                    sentiment_data[sentiment][date_idx] = int(row['count'])
         
         return jsonify({
             'dates': unique_dates,
             'sentiment_data': sentiment_data,
             'colors': {
-                'Positive': '#28a745',  # Green
-                'Neutral': '#6c757d',   # Gray
-                'Negative': '#dc3545'   # Red
+                'Positive': '#28a745',
+                'Neutral': '#6c757d',
+                'Negative': '#dc3545'
             }
         })
         
     except Exception as e:
         print(f"Error in get_sentiment_data: {str(e)}")
-        traceback.print_exc()  # Add this to get more detailed error information
+        traceback.print_exc()
         return jsonify({
             'error': str(e),
             'dates': [],
@@ -401,76 +446,55 @@ def get_sentiment_distribution():
 @app.route('/api/predictions/<symbol>')
 def get_predictions(symbol):
     try:
-        # Get date filter from request parameters
         filter_date = request.args.get('filter_date')
         
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Base query
         query = """
-            SELECT 
-                p.prediction_id,
-                p.prediction_date,
-                p.current_price,
-                p.prediction_24h,
-                p.prediction_7d,
-                p.prediction_30d,
-                p.prediction_90d,
-                p.actual_price_24h,
-                p.actual_price_7d,
-                p.actual_price_30d,
-                p.actual_price_90d,
-                p.confidence_score,
-                p.accuracy_score,
-                p.market_conditions,
-                p.volatility_index,
-                p.prediction_error_24h,
-                p.model_version,
-                c.symbol
-            FROM predictions p
-            JOIN Coins c ON p.coin_id = c.coin_id
+            SELECT *
+            FROM vw_predictions
             WHERE 1=1
         """
         
         params = []
         
-        # Add symbol filter if not 'all'
         if symbol.lower() != 'all':
-            query += " AND c.symbol = ?"
+            query += " AND Symbol = ?"
             params.append(symbol)
             
-        # Add date filter if provided
         if filter_date:
-            query += " AND CAST(p.prediction_date AS DATE) = CAST(? AS DATE)"
+            query += " AND CAST(PredictionDate AS DATE) = CAST(? AS DATE)"
             params.append(filter_date)
             
-        query += " ORDER BY p.prediction_date DESC"
+        query += " ORDER BY PredictionDate DESC"
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
         
+        # Debug: Print column names
+        print(f"First row column names: {[column[0] for column in cursor.description]}")
+
         results = []
         for row in rows:
+            # Convert row to dictionary for easier access
+            row_dict = {column[0]: value for column, value in zip(cursor.description, row)}
+            
             result = {
-                'prediction_id': row.prediction_id,
-                'prediction_date': row.prediction_date.isoformat() if row.prediction_date else None,
-                'symbol': row.symbol,
-                'current_price': float(row.current_price) if row.current_price else None,
-                'prediction_24h': float(row.prediction_24h) if row.prediction_24h else None,
-                'prediction_7d': float(row.prediction_7d) if row.prediction_7d else None,
-                'prediction_30d': float(row.prediction_30d) if row.prediction_30d else None,
-                'prediction_90d': float(row.prediction_90d) if row.prediction_90d else None,
-                'actual_price_24h': float(row.actual_price_24h) if row.actual_price_24h else None,
-                'actual_price_7d': float(row.actual_price_7d) if row.actual_price_7d else None,
-                'actual_price_30d': float(row.actual_price_30d) if row.actual_price_30d else None,
-                'actual_price_90d': float(row.actual_price_90d) if row.actual_price_90d else None,
-                'confidence_score': float(row.confidence_score) if row.confidence_score else None,
-                'accuracy_score': float(row.accuracy_score) if row.accuracy_score else None,
-                'market_conditions': row.market_conditions,
-                'volatility_index': float(row.volatility_index) if row.volatility_index else None,
-                'prediction_error': float(row.prediction_error_24h) if row.prediction_error_24h else None,
-                'model_version': row.model_version
+                'PredictionDate': row_dict['PredictionDate'].isoformat() if row_dict['PredictionDate'] else None,
+                'Symbol': row_dict['Symbol'],
+                'Price When Predicted': float(row_dict['Price When Predicted']) if row_dict['Price When Predicted'] else None,
+                'Prediction 24h': float(row_dict['Prediction 24h']) if row_dict['Prediction 24h'] else None,
+                'Actual 24h': float(row_dict['Actual 24h']) if row_dict['Actual 24h'] else None,
+                'Predicted 7d': float(row_dict['Predicted 7d']) if row_dict['Predicted 7d'] else None,
+                'Actual 7d': float(row_dict['Actual 7d']) if row_dict['Actual 7d'] else None,
+                'Pred 30d': float(row_dict['Pred 30d']) if row_dict['Pred 30d'] else None,
+                'Actual 30d': float(row_dict['Actual 30d']) if row_dict['Actual 30d'] else None,
+                'Pred 90d': float(row_dict['Pred 90d']) if row_dict['Pred 90d'] else None,
+                'Actual 90d': float(row_dict['Actual 90d']) if row_dict['Actual 90d'] else None,
+                'Sentiment': row_dict['Sentiment'],
+                'Confidence': float(row_dict['Confidence']) if row_dict['Confidence'] else None,
+                'Accuracy': float(row_dict['Accuracy']) if row_dict['Accuracy'] else None
             }
             results.append(result)
 
@@ -481,6 +505,7 @@ def get_predictions(symbol):
 
     except Exception as e:
         print(f"Error in get_predictions: {str(e)}")
+        traceback.print_exc()
         return jsonify({
             'error': str(e),
             'predictions': []

@@ -83,35 +83,56 @@ async function updatePredictions() {
             throw new Error('Invalid data received');
         }
 
-        // Create table HTML
         let html = `
-            <table class="table table-hover">
+            <style>
+                .predictions-table th {
+                    height: 80px;
+                    white-space: nowrap;
+                    padding: 0 !important;
+                    vertical-align: bottom;
+                }
+                
+                .predictions-table th > div {
+                    transform: rotate(-45deg);
+                    transform-origin: left bottom;
+                    position: relative;
+                    left: 50%;
+                    bottom: 0;
+                    margin-left: -10px;
+                    width: 120px;
+                }
+                
+                .predictions-table td {
+                    text-align: right;
+                    padding: 8px;
+                }
+                
+                .predictions-table td:first-child,
+                .predictions-table td:nth-child(2) {
+                    text-align: left;
+                }
+
+                .two-lines {
+                    white-space: pre-line;  /* Allow line breaks */
+                }
+            </style>
+            <table class="table table-hover predictions-table">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Symbol</th>
-                        <th>Current Price</th>
-                        <th colspan="4">Predictions</th>
-                        <th colspan="4">Actual Prices</th>
-                        <th>Sentiment</th>
-                        <th>Confidence</th>
-                        <th>Accuracy</th>
-                    </tr>
-                    <tr>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                        <th>24h</th>
-                        <th>7d</th>
-                        <th>30d</th>
-                        <th>90d</th>
-                        <th>24h</th>
-                        <th>7d</th>
-                        <th>30d</th>
-                        <th>90d</th>
-                        <th></th>
-                        <th></th>
-                        <th></th>
+                        <th><div>Prediction Date</div></th>
+                        <th><div>Symbol</div></th>
+                        <th><div class="two-lines">Price When\nPredicted</div></th>
+                        <th><div>Prediction 24h</div></th>
+                        <th><div>Actual 24h</div></th>
+                        <th><div>Predicted 7d</div></th>
+                        <th><div>Actual 7d</div></th>
+                        <th><div>Pred 30d</div></th>
+                        <th><div>Actual 30d</div></th>
+                        <th><div>Pred 90d</div></th>
+                        <th><div>Actual 90d</div></th>
+                        <th><div>Sentiment</div></th>
+                        <th><div>Confidence</div></th>
+                        <th><div>Accuracy</div></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -120,20 +141,20 @@ async function updatePredictions() {
         data.predictions.forEach(p => {
             html += `
                 <tr>
-                    <td>${formatDateTime(p.prediction_date)}</td>
-                    <td>${p.symbol}</td>
-                    <td>${p.current_price?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.prediction_24h?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.prediction_7d?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.prediction_30d?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.prediction_90d?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.actual_price_24h?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.actual_price_7d?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.actual_price_30d?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.actual_price_90d?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.market_conditions || 'N/A'}</td>
-                    <td>${p.confidence_score?.toFixed(1) || 'N/A'}%</td>
-                    <td>${p.accuracy_score?.toFixed(1) || 'N/A'}%</td>
+                    <td>${formatDateTime(p.PredictionDate)}</td>
+                    <td>${p.Symbol}</td>
+                    <td>${p['Price When Predicted']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p['Prediction 24h']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p['Actual 24h']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p['Predicted 7d']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p['Actual 7d']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p['Pred 30d']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p['Actual 30d']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p['Pred 90d']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p['Actual 90d']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p.Sentiment || 'N/A'}</td>
+                    <td>${p.Confidence?.toFixed(1) || 'N/A'}%</td>
+                    <td>${p.Accuracy?.toFixed(1) || 'N/A'}%</td>
                 </tr>
             `;
         });
@@ -157,21 +178,31 @@ async function initializeSelects() {
         
         // Populate coin selects
         const selects = [
-            'coinSelect',           // Price tab
             'sentimentCoinSelect',  // Sentiment tab
             'loadCoinSelect'        // Data Loads tab
         ];
         
+        // Add "All Coins" option to specified dropdowns
         selects.forEach(selectId => {
             const select = document.getElementById(selectId);
             if (select) {
-                select.innerHTML = ''; // Clear existing options
+                select.innerHTML = '<option value="all">All Coins</option>'; // Add "All Coins" option
                 Object.entries(coins).forEach(([symbol, name]) => {
                     const option = new Option(`${symbol} - ${name}`, symbol);
                     select.add(option);
                 });
             }
         });
+
+        // Populate price tab dropdown separately (without "All" option)
+        const priceSelect = document.getElementById('coinSelect');
+        if (priceSelect) {
+            priceSelect.innerHTML = ''; // Clear existing options
+            Object.entries(coins).forEach(([symbol, name]) => {
+                const option = new Option(`${symbol} - ${name}`, symbol);
+                priceSelect.add(option);
+            });
+        }
 
         // Initial chart updates
         if (document.getElementById('coinSelect').value) {
@@ -300,12 +331,33 @@ async function updatePriceChart() {
 async function updateSentimentChart() {
     try {
         const coin = document.getElementById('sentimentCoinSelect').value;
-        if (!coin) return; // Don't make the API call if no coin is selected
+        if (!coin) return;
         
+        console.log('Fetching sentiment data for:', coin); // Debug log
         const response = await fetch(`/api/sentiment/${coin}`);
         const data = await response.json();
-
-        const chart = echarts.init(document.getElementById('sentiment-chart'));
+        
+        console.log('Received sentiment data:', data); // Debug log
+        
+        // Make sure we have a chart container
+        const chartContainer = document.getElementById('sentiment-chart');
+        if (!chartContainer) {
+            console.error('Chart container not found');
+            return;
+        }
+        
+        // Initialize or get existing chart
+        let chart = echarts.getInstanceByDom(chartContainer);
+        if (!chart) {
+            chart = echarts.init(chartContainer);
+        }
+        
+        // Verify we have the required data
+        if (!data.dates || !data.sentiment_data || !data.colors) {
+            console.error('Invalid data structure:', data);
+            chartContainer.innerHTML = '<div class="alert alert-danger">Invalid data format received</div>';
+            return;
+        }
         
         const option = {
             title: {
@@ -322,9 +374,18 @@ async function updateSentimentChart() {
                 data: Object.keys(data.sentiment_data),
                 top: 30
             },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                containLabel: true
+            },
             xAxis: {
                 type: 'category',
-                data: data.dates
+                data: data.dates,
+                axisLabel: {
+                    rotate: 45
+                }
             },
             yAxis: {
                 type: 'value',
@@ -341,7 +402,14 @@ async function updateSentimentChart() {
             }))
         };
         
-        chart.setOption(option);
+        console.log('Chart options:', option); // Debug log
+        chart.setOption(option, true);
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            chart.resize();
+        });
+        
     } catch (error) {
         console.error('Error updating sentiment chart:', error);
         const chartContainer = document.getElementById('sentiment-chart');
@@ -350,6 +418,16 @@ async function updateSentimentChart() {
         }
     }
 }
+
+// Make sure the chart updates when the tab is opened
+document.addEventListener('DOMContentLoaded', () => {
+    const sentimentTab = document.querySelector('[data-tab="Sentiment"]');
+    if (sentimentTab) {
+        sentimentTab.addEventListener('click', () => {
+            setTimeout(updateSentimentChart, 100); // Small delay to ensure container is visible
+        });
+    }
+});
 
 async function updateDataLoads() {
     try {
@@ -427,3 +505,29 @@ document.getElementById('sentimentCoinSelect')?.addEventListener('change', updat
 document.getElementById('loadHoursSelect')?.addEventListener('change', updateDataLoads);
 document.getElementById('chatSourceSelect')?.addEventListener('change', updateDataLoads);
 document.getElementById('loadCoinSelect')?.addEventListener('change', updateDataLoads);
+
+// When populating the price tab's coin selector
+fetch('/api/coins?tab=price')
+  .then(response => response.json())
+  .then(coins => {
+    const coinSelect = document.getElementById('coinSelect');
+    coins.forEach(coin => {
+      const option = document.createElement('option');
+      option.value = coin;
+      option.textContent = coin;
+      coinSelect.appendChild(option);
+    });
+  });
+
+// When populating the sentiment tab's coin selector
+fetch('/api/coins?tab=sentiment')
+  .then(response => response.json())
+  .then(coins => {
+    const sentimentCoinSelect = document.getElementById('sentimentCoinSelect');
+    coins.forEach(coin => {
+      const option = document.createElement('option');
+      option.value = coin;
+      option.textContent = coin;
+      sentimentCoinSelect.appendChild(option);
+    });
+  });
