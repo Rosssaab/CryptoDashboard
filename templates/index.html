@@ -90,7 +90,7 @@
                     </div>
                 </div>
             </div>
-            <div id="price-chart"></div>
+            <div id="price-chart" style="height: 400px;"></div>
         </div>
 
         <div id="Sentiment" class="tabcontent">
@@ -109,7 +109,7 @@
                     </div>
                 </div>
             </div>
-            <div id="sentiment-chart"></div>
+            <div id="sentiment-chart" style="height: 400px;"></div>
         </div>
 
         <div id="Predictions" class="tabcontent">
@@ -117,34 +117,20 @@
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-auto">
-                            <label for="predictionCoinSelect">Coin:</label>
-                            <select id="predictionCoinSelect" class="form-select">
-                                <!-- Options will be populated by JavaScript -->
+                            <label for="predictionsCoinSelect">Coin:</label>
+                            <select id="predictionsCoinSelect" class="form-select">
+                                <option value="all">All Coins</option>
                             </select>
                         </div>
                         <div class="col-auto">
-                            <label for="predictionTimeframe">Timeframe:</label>
-                            <select id="predictionTimeframe" class="form-select">
-                                <option value="24h">24 Hours</option>
-                                <option value="7d">7 Days</option>
-                                <option value="30d">30 Days</option>
-                                <option value="90d">90 Days</option>
-                            </select>
+                            <label for="predictionsDateFilter">Date:</label>
+                            <input type="date" id="predictionsDateFilter" class="form-control" />
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Add this div for the predictions table -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Prediction History</h5>
-                </div>
-                <div class="card-body">
-                    <div id="predictions-table" class="table-responsive">
-                        <!-- Table will be populated by JavaScript -->
-                    </div>
-                </div>
+            <div id="predictionsContainer">
+                <!-- Predictions table will be loaded here -->
             </div>
         </div>
 
@@ -174,17 +160,6 @@
                             <label for="loadCoinSelect">Coin:</label>
                             <select id="loadCoinSelect" class="form-select">
                                 <option value="all">All Coins</option>
-                            </select>
-                        </div>
-                        <div class="col-auto">
-                            <label for="sortBySelect">Sort By:</label>
-                            <select id="sortBySelect" class="form-select">
-                                <option value="source">Source</option>
-                                <option value="coin">Coin</option>
-                                <option value="count_desc">Records (High to Low)</option>
-                                <option value="count_asc">Records (Low to High)</option>
-                                <option value="sentiment_desc">Sentiment (High to Low)</option>
-                                <option value="sentiment_asc">Sentiment (Low to High)</option>
                             </select>
                         </div>
                         <div class="col-auto ms-auto">
