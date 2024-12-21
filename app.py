@@ -499,125 +499,96 @@ def get_predictions():
 
 @app.route('/api/data_loads')
 def get_data_loads():
-    hours = request.args.get('hours', '24')
-    source = request.args.get('source', 'all')
-    coin = request.args.get('coin', 'all')
-    
-    print(f"\n=== Data Loads Request ===")
-    print(f"Hours: {hours}")
-    print(f"Source: {source}")
-    print(f"Coin: {coin}")
-    
     try:
+        # Get query parameters with defaults
+        hours = request.args.get('hours', '1')
+        source = request.args.get('source', 'all')
+        coin = request.args.get('coin', 'all')
+
+        print(f"Received request with params - hours: {hours}, source: {source}, coin: {coin}")
+
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Get coins for dropdown
-        print("Fetching coins...")
-        cursor.execute("SELECT coin_id, symbol FROM Coins ORDER BY symbol")
-        coins = [{"id": str(row[0]), "symbol": row[1]} for row in cursor.fetchall()]
-        print(f"Found {len(coins)} coins")
-
-        # Get chat sources for dropdown
-        print("Fetching sources...")
-        cursor.execute("SELECT source_id, source_name FROM chat_source ORDER BY source_name")
-        sources = [{"id": str(row[0]), "name": row[1]} for row in cursor.fetchall()]
-        print(f"Found {len(sources)} sources")
-
-        # Main query for stats
-        params = [int(hours)]  # Initialize params list
-        where_clauses = ["cd.timestamp >= DATEADD(HOUR, -?, GETDATE())"]  # Initialize where_clauses list
-
-        if source != 'all':
-            where_clauses.append("cd.source_id = ?")
-            params.append(int(source))
-
-        if coin != 'all':
-            where_clauses.append("c.symbol = ?")
-            params.append(coin)
-
-        where_clause = " AND ".join(where_clauses)
-
+        # Base query using chat_data table
         query = """
             SELECT 
-                cs.source_name,
-                c.symbol,
-                COUNT(cd.chat_id) as record_count,
-                AVG(CONVERT(float, cd.sentiment_score)) as avg_sentiment
+                cd.timestamp as LoadDate,
+                cs.source_name as ChatSource,
+                c.symbol as Symbol,
+                COUNT(*) as RecordsLoaded
             FROM chat_data cd
-            INNER JOIN Coins c 
-                ON cd.coin_id = c.coin_id
-            INNER JOIN chat_source cs 
-                ON cd.source_id = cs.source_id
-            WHERE {where_clause}
-            GROUP BY 
-                cs.source_name,
-                c.symbol
-            ORDER BY 
-                cs.source_name,
-                c.symbol
-        """.format(where_clause=where_clause)
+            JOIN chat_source cs ON cd.source_id = cs.source_id
+            JOIN Coins c ON cd.coin_id = c.coin_id
+            WHERE cd.timestamp >= DATEADD(HOUR, -?, GETDATE())
+        """
+        params = [int(hours)]
 
-        # Debug output
-        print("\n=== SQL Query ===")
-        print("Query template:")
-        print(query)
-        print("\nParameters:", params)
-        
-        # Show complete SQL with parameters
-        debug_sql = query
-        for param in params:
-            debug_sql = debug_sql.replace('?', str(param) if isinstance(param, (int, float)) else f"'{param}'", 1)
-        print("\nComplete SQL with parameters:")
-        print(debug_sql)
+        # Add source filter if specified
+        if source.lower() != 'all':
+            query += " AND cs.source_name = ?"
+            params.append(source)
 
+        # Add coin filter if specified
+        if coin.lower() != 'all':
+            query += " AND c.symbol = ?"
+            params.append(coin)
+
+        # Add grouping
+        query += """
+            GROUP BY cd.timestamp, cs.source_name, c.symbol
+            ORDER BY cd.timestamp DESC
+        """
+
+        print(f"Executing query: {query}")
+        print(f"With parameters: {params}")
+
+        # Execute query
         cursor.execute(query, params)
+        
+        # Fetch results
         rows = cursor.fetchall()
-        print(f"Found {len(rows)} result rows")
+        print(f"Found {len(rows)} rows")
         
-        stats = []
+        # Convert to list of dicts
+        results = []
         for row in rows:
-            try:
-                stats.append({
-                    'source': str(row[0]),    # source_name
-                    'symbol': str(row[1]),    # symbol
-                    'count': int(row[2]),     # record_count
-                    'sentiment': float(row[3]) if row[3] is not None else 0.0  # avg_sentiment
-                })
-            except Exception as e:
-                print(f"Error processing row {row}: {str(e)}")
+            results.append({
+                'LoadDate': row[0].isoformat() if row[0] else None,
+                'ChatSource': row[1],
+                'Symbol': row[2],
+                'RecordsLoaded': row[3]
+            })
 
-        result = {
-            "coins": coins,
-            "sources": sources,
-            "stats": stats
-        }
-        
-        print("\nReturning result:")
-        print(f"- {len(coins)} coins")
-        print(f"- {len(sources)} sources")
-        print(f"- {len(stats)} stat rows")
-        
-        return jsonify(result)
+        return jsonify(results)
 
     except Exception as e:
-        print("\n=== Error in Data Loads ===")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
-        print("Full traceback:")
-        traceback.print_exc()
-        
-        return jsonify({
-            "error": str(e),
-            "error_type": type(e).__name__,
-            "coins": [],
-            "sources": [],
-            "stats": []
-        }), 500
+        print(f"Error in get_data_loads: {str(e)}")
+        print(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
 
     finally:
         if 'conn' in locals():
-            print("Closing database connection")
+            conn.close()
+
+@app.route('/api/chat_sources')
+def get_chat_sources():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get chat sources from the database
+        cursor.execute("SELECT source_name FROM chat_source ORDER BY source_name")
+        sources = [row[0] for row in cursor.fetchall()]
+        
+        return jsonify(sources)
+        
+    except Exception as e:
+        print(f"Error in get_chat_sources: {str(e)}")
+        return jsonify([]), 500
+        
+    finally:
+        if 'conn' in locals():
             conn.close()
 
 if __name__ == '__main__':
