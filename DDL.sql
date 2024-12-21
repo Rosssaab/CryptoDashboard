@@ -1,6 +1,6 @@
 USE [CryptoAiDb]
 GO
-/****** Object:  UserDefinedFunction [dbo].[fn_GetCurrentPrice]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  UserDefinedFunction [dbo].[fn_GetCurrentPrice]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -18,7 +18,7 @@ BEGIN
     RETURN ISNULL(@current_price, 0)
 END
 GO
-/****** Object:  Table [dbo].[chat_source]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  Table [dbo].[chat_source]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -38,7 +38,7 @@ UNIQUE NONCLUSTERED
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[chat_data]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  Table [dbo].[chat_data]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -58,7 +58,7 @@ PRIMARY KEY CLUSTERED
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[Coins]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  Table [dbo].[Coins]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -74,7 +74,7 @@ CREATE TABLE [dbo].[Coins](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  View [dbo].[ChatView]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  View [dbo].[ChatView]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -86,7 +86,7 @@ FROM            dbo.chat_data INNER JOIN
                          dbo.chat_source ON dbo.chat_data.source_id = dbo.chat_source.source_id INNER JOIN
                          dbo.Coins ON dbo.chat_data.coin_id = dbo.Coins.coin_id
 GO
-/****** Object:  Table [dbo].[Price_Data]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  Table [dbo].[Price_Data]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -105,7 +105,7 @@ CREATE TABLE [dbo].[Price_Data](
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[predictions]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  Table [dbo].[predictions]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -143,7 +143,7 @@ PRIMARY KEY CLUSTERED
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 GO
-/****** Object:  View [dbo].[vw_predictions]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  View [dbo].[vw_predictions]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -198,7 +198,7 @@ SELECT
 FROM predictions p
 INNER JOIN Coins c ON p.coin_id = c.coin_id
 GO
-/****** Object:  Table [dbo].[model_performance_metrics]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  Table [dbo].[model_performance_metrics]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -223,7 +223,7 @@ PRIMARY KEY CLUSTERED
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[prediction_feature_importance]    Script Date: 21/12/2024 10:08:07 ******/
+/****** Object:  Table [dbo].[prediction_feature_importance]    Script Date: 21/12/2024 18:41:43 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON

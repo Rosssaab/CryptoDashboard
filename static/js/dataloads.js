@@ -1,6 +1,21 @@
 // Data Loads tab functionality
 async function updateDataLoads() {
     try {
+        // Show loading indicator
+        const statsElement = document.getElementById('dataLoadStats');
+        if (statsElement) {
+            statsElement.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="mt-2">Loading data loads...</div>
+                    </td>
+                </tr>
+            `;
+        }
+
         const hours = document.getElementById('loadHoursSelect').value;
         const source = document.getElementById('chatSourceSelect').value;
         const coin = document.getElementById('loadCoinSelect').value;
@@ -45,9 +60,16 @@ async function updateDataLoads() {
             });
         }
         
-        const statsElement = document.getElementById('dataLoadStats');
         if (statsElement) {
-            statsElement.innerHTML = html;
+            statsElement.innerHTML = html || `
+                <tr>
+                    <td colspan="4" class="text-center">
+                        <div class="alert alert-info m-3">
+                            No data loads found for the selected criteria
+                        </div>
+                    </td>
+                </tr>
+            `;
         }
         
         const totalElement = document.getElementById('totalRecordsValue');
@@ -61,10 +83,14 @@ async function updateDataLoads() {
         if (statsElement) {
             statsElement.innerHTML = `
                 <tr>
-                    <td colspan="4" class="text-danger">
-                        Error loading data: ${error.message}
+                    <td colspan="4" class="text-center">
+                        <div class="alert alert-danger m-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Error loading data: ${error.message}
+                        </div>
                     </td>
-                </tr>`;
+                </tr>
+            `;
         }
     }
 }

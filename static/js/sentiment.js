@@ -90,5 +90,27 @@ async function updateSentimentChart() {
     }
 }
 
+// Add event listener for coin selection
+document.addEventListener('DOMContentLoaded', () => {
+    // Add change event listener to coin select
+    document.getElementById('sentimentCoinSelect')?.addEventListener('change', updateSentimentChart);
+    
+    // Fetch available coins for sentiment analysis
+    fetch('/api/coins?tab=sentiment')
+        .then(response => response.json())
+        .then(coins => {
+            const sentimentCoinSelect = document.getElementById('sentimentCoinSelect');
+            if (sentimentCoinSelect) {
+                coins.forEach(coin => {
+                    const option = document.createElement('option');
+                    option.value = coin;
+                    option.textContent = coin;
+                    sentimentCoinSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => console.error('Error loading coins:', error));
+});
+
 // Export the function so it's available to main.js
 window.updateSentimentChart = updateSentimentChart; 

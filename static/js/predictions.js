@@ -20,6 +20,20 @@ async function initializePredictions() {
 async function updatePredictions() {
     try {
         console.log('Fetching predictions...');
+        
+        // Show loading indicator
+        const container = document.getElementById('predictions-container');
+        if (container) {
+            container.innerHTML = `
+                <div class="text-center my-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2">Loading predictions data...</div>
+                </div>
+            `;
+        }
+
         const dateFilter = document.getElementById('predictionsDateFilter')?.value || '';
         const response = await fetch(`/api/predictions?date=${dateFilter}`);
         if (!response.ok) {
@@ -30,6 +44,16 @@ async function updatePredictions() {
         displayPredictions(data);
     } catch (error) {
         console.error('Error loading predictions:', error);
+        // Show error message if loading fails
+        const container = document.getElementById('predictions-container');
+        if (container) {
+            container.innerHTML = `
+                <div class="alert alert-danger m-3" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading predictions: ${error.message}
+                </div>
+            `;
+        }
     }
 }
 

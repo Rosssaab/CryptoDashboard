@@ -18,15 +18,15 @@ async function openTab(evt, tabName) {
         const tablinks = document.getElementsByClassName("nav-link");
         for (let i = 0; i < tablinks.length; i++) {
             tablinks[i].classList.remove("active");
-            tablinks[i].classList.remove("bg-secondary");  // Remove dark background
-            tablinks[i].classList.remove("text-white");    // Remove white text
+            tablinks[i].classList.remove("bg-secondary");
+            tablinks[i].classList.remove("text-white");
         }
 
         // Show current tab and mark it active
         document.getElementById(tabName).style.display = "block";
         evt.currentTarget.classList.add("active");
-        evt.currentTarget.classList.add("bg-secondary");   // Add dark background to active tab
-        evt.currentTarget.classList.add("text-white");     // Add white text to active tab
+        evt.currentTarget.classList.add("bg-secondary");
+        evt.currentTarget.classList.add("text-white");
 
         // Initialize data based on tab
         if (tabName === 'DataLoads') {
@@ -395,91 +395,10 @@ async function updateMentionsCharts() {
     }
 }
 
-async function updatePriceChart() {
-    try {
-        const coin = document.getElementById('coinSelect').value;
-        if (!coin) return; // Don't make the API call if no coin is selected
-        
-        const timeRange = document.getElementById('priceTimeRange').value;
-        const response = await fetch(`/api/price/${coin}?timerange=${timeRange}`);
-        const data = await response.json();
-
-        const chart = echarts.init(document.getElementById('price-chart'));
-        
-        const option = {
-            title: {
-                text: `${coin} Price Chart`,
-                left: 'center'
-            },
-            tooltip: {
-                trigger: 'axis'
-            },
-            xAxis: {
-                type: 'category',
-                data: data.timestamps
-            },
-            yAxis: {
-                type: 'value',
-                name: 'Price'
-            },
-            series: [{
-                name: 'Price',
-                type: 'line',
-                data: data.prices,
-                smooth: true
-            }]
-        };
-        
-        chart.setOption(option);
-    } catch (error) {
-        console.error('Error updating price chart:', error);
-        const chartContainer = document.getElementById('price-chart');
-        if (chartContainer) {
-            chartContainer.innerHTML = '<div class="alert alert-danger">Error loading price data</div>';
-        }
-    }
-}
-
-// Make sure the chart updates when the tab is opened
-document.addEventListener('DOMContentLoaded', () => {
-    const sentimentTab = document.querySelector('[data-tab="Sentiment"]');
-    if (sentimentTab) {
-        sentimentTab.addEventListener('click', () => {
-            setTimeout(updateSentimentChart, 100); // Small delay to ensure container is visible
-        });
-    }
-});
-
-// When populating the sentiment tab's coin selector
-fetch('/api/coins?tab=sentiment')
-  .then(response => response.json())
-  .then(coins => {
-    const sentimentCoinSelect = document.getElementById('sentimentCoinSelect');
-    coins.forEach(coin => {
-      const option = document.createElement('option');
-      option.value = coin;
-      option.textContent = coin;
-      sentimentCoinSelect.appendChild(option);
-    });
-  });
-
 // Add event listeners for data loads
 document.getElementById('loadHoursSelect')?.addEventListener('change', updateDataLoads);
 document.getElementById('chatSourceSelect')?.addEventListener('change', updateDataLoads);
 document.getElementById('loadCoinSelect')?.addEventListener('change', updateDataLoads);
-
-// When populating the price tab's coin selector
-fetch('/api/coins?tab=price')
-  .then(response => response.json())
-  .then(coins => {
-    const coinSelect = document.getElementById('coinSelect');
-    coins.forEach(coin => {
-      const option = document.createElement('option');
-      option.value = coin;
-      option.textContent = coin;
-      coinSelect.appendChild(option);
-    });
-  });
 
 // Add event listener for the predictions date filter
 document.getElementById('predictionsDateFilter')?.addEventListener('change', async () => {

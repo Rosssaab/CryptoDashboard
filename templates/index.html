@@ -97,22 +97,18 @@
         </div>
 
         <div id="Sentiment" class="tabcontent">
-            <div class="card mb-3">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-auto">
-                            <label for="sentimentCoinSelect">Coin:</label>
-                            <select id="sentimentCoinSelect" class="form-select">
-                                <!-- Options will be populated by JavaScript -->
-                            </select>
-                        </div>
-                        <div class="col-auto">
-                            <button class="btn btn-primary" onclick="updateSentimentChart()">Update</button>
-                        </div>
-                    </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <select class="form-select" id="sentimentCoinSelect">
+                        <option value="">Select Coin</option>
+                    </select>
                 </div>
             </div>
-            <div id="sentiment-chart" style="height: 400px;"></div>
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div id="sentiment-chart" style="height: 500px;"></div>
+                </div>
+            </div>
         </div>
 
         <div id="Predictions" class="tabcontent">
@@ -214,6 +210,7 @@
     <script src="{{ url_for('static', filename='js/dataloads.js') }}"></script>
     <script src="{{ url_for('static', filename='js/sentiment.js') }}"></script>
     <script src="{{ url_for('static', filename='js/predictions.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/price.js') }}"></script>
     <!-- Custom JavaScript -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
