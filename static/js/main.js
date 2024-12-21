@@ -270,7 +270,12 @@ async function updateMentionsCharts() {
                 showlegend: false,
                 textinfo: 'none',
                 depth: 0.5,
-                rotation: 45
+                rotation: 45,
+                shadow: true,
+                domain: {
+                    x: [0, 1],
+                    y: [0, 0.85]
+                }
             };
 
             // Add data points only if they have values
@@ -290,7 +295,7 @@ async function updateMentionsCharts() {
             const layout = {
                 height: 300,
                 width: 300,
-                margin: { t: 20, b: 20, l: 20, r: 20 },
+                margin: { t: 30, b: 30, l: 30, r: 30 },
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 scene: {
@@ -298,21 +303,67 @@ async function updateMentionsCharts() {
                         eye: {x: 1.5, y: 1.5, z: 1.5}
                     }
                 },
-                annotations: [{
-                    text: coin.symbol,
-                    x: 0.5,
-                    y: 0.5,
-                    font: {
-                        size: 24,
-                        color: '#000'
+                annotations: [
+                    // Coin symbol in center
+                    {
+                        text: coin.symbol,
+                        x: 0.5,
+                        y: 0.42,
+                        font: {
+                            size: 24,
+                            color: '#000'
+                        },
+                        showarrow: false
                     },
-                    showarrow: false
-                }]
+                    // Mention count above chart
+                    {
+                        text: `${total} mentions`,
+                        x: 0.5,
+                        y: 1,
+                        xanchor: 'center',
+                        yanchor: 'top',
+                        font: {
+                            size: 16,
+                            color: '#666'
+                        },
+                        showarrow: false,
+                        id: `mentions-${coin.symbol}`  // Add ID for hover updates
+                    }
+                ],
+                shapes: [
+                    {
+                        type: 'rect',
+                        xref: 'paper',
+                        yref: 'paper',
+                        x0: 0.05,
+                        y0: 0.05,
+                        x1: 0.95,
+                        y1: 0.95,
+                        fillcolor: 'rgba(0,0,0,0.1)',
+                        layer: 'below',
+                        line: {width: 0},
+                        opacity: 0.5
+                    }
+                ]
             };
 
             Plotly.newPlot(chartDiv, [pieData], layout, {
                 displayModeBar: false,
                 responsive: true
+            });
+
+            // Add hover events
+            chartDiv.on('plotly_hover', () => {
+                const mentionsAnnotation = layout.annotations[1];
+                Plotly.relayout(chartDiv, {
+                    'annotations[1].font.weight': 'bold'
+                });
+            });
+
+            chartDiv.on('plotly_unhover', () => {
+                Plotly.relayout(chartDiv, {
+                    'annotations[1].font.weight': 'normal'
+                });
             });
         });
     } catch (error) {
