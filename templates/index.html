@@ -18,6 +18,9 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+    <!-- Add Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 
 <body>
@@ -129,7 +132,7 @@
                     </div>
                 </div>
             </div>
-            <div id="predictionsContainer">
+            <div id="predictions-content">
                 <!-- Predictions table will be loaded here -->
             </div>
         </div>
@@ -137,6 +140,7 @@
         <div id="DataLoads" class="tabcontent">
             <div class="card mb-3">
                 <div class="card-body">
+                    <h5 class="mb-3">Data Load Statistics</h5>
                     <div class="row align-items-center g-3">
                         <div class="col-auto">
                             <label for="loadHoursSelect">Time Window:</label>
@@ -162,47 +166,40 @@
                                 <option value="all">All Coins</option>
                             </select>
                         </div>
-                        <div class="col-auto ms-auto">
-                            <div class="d-flex align-items-center">
-                                <div class="me-4">
-                                    <strong>Total Records:</strong>
-                                    <span id="totalRecordsValue" class="badge bg-primary ms-2">0</span>
-                                </div>
-                                <div>
-                                    <strong>Average Sentiment:</strong>
-                                    <span id="averageSentimentValue" class="sentiment-box ms-2">0.000</span>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Data Load Statistics</h5>
+                <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#chatDataContent">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Chat Data</h5>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <!-- Add loading spinner container -->
-                        <div id="loadingSpinner" class="loading-spinner" style="display: none;">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
+                <div id="chatDataContent" class="collapse">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span>Loading data...</span>
                             </div>
-                            <span>Loading data...</span>
+                            
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Load Date</th>
+                                        <th>Chat Source</th>
+                                        <th>Coin</th>
+                                        <th>Records Loaded</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dataLoadStats">
+                                </tbody>
+                            </table>
                         </div>
-                        
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Chat Source</th>
-                                    <th>Coin</th>
-                                    <th>Records Loaded</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dataLoadStats">
-                            </tbody>
-                        </table>
                     </div>
                 </div>
             </div>

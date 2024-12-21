@@ -138,3 +138,49 @@ body {
 .me-4 {
     margin-right: 1.5rem !important;
 }
+
+.predictions-table th {
+    height: 140px !important;
+    white-space: nowrap !important;
+    padding: 0 !important;
+    vertical-align: bottom !important;
+    position: relative !important;
+}
+
+.predictions-table .rotated-header {
+    transform: rotate(-45deg) !important;
+    width: 30px !important;
+    position: absolute !important;
+    left: 10px !important;
+    bottom: 35px !important;
+}
+
+.predictions-table td {
+    padding: 8px !important;
+    text-align: right !important;
+}
+
+/* Keep symbol column left-aligned */
+.predictions-table td:nth-child(2) {
+    text-align: left !important;
+}
+
+/* Add some padding to the table */
+.predictions-table {
+    margin: 20px !important;
+    width: calc(100% - 40px) !important;
+}
+
+/* Add smooth transition for collapse */
+.collapse {
+    transition: all 0.5s ease !important;
+}
+
+/* Rotate arrow icon smoothly */
+.card-header .fa-chevron-down {
+    transition: transform 0.5s ease;
+}
+
+.card-header[aria-expanded="true"] .fa-chevron-down {
+    transform: rotate(180deg);
+}

@@ -26,16 +26,12 @@ async function openTab(evt, tabName) {
 
         // Initialize data based on tab
         if (tabName === 'DataLoads') {
-            // Show loading spinner
-            const spinner = document.getElementById('loadingSpinner');
-            if (spinner) spinner.style.display = 'block';
-            
-            try {
-                await updateDataLoads();
-            } finally {
-                // Hide spinner regardless of success/failure
-                if (spinner) spinner.style.display = 'none';
+            // Ensure the chat data content is collapsed initially
+            const chatDataContent = document.getElementById('chatDataContent');
+            if (chatDataContent) {
+                chatDataContent.classList.remove('show');
             }
+            await updateDataLoads();
         } else if (tabName === 'Predictions') {
             await initializePredictions();
         } else if (tabName === 'Sentiment') {
@@ -449,68 +445,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function updateDataLoads() {
     try {
-        // Show loading spinner
-        document.getElementById('loadingSpinner').style.display = 'block';
-        
         const hours = document.getElementById('loadHoursSelect').value;
         const source = document.getElementById('chatSourceSelect').value;
         const coin = document.getElementById('loadCoinSelect').value;
         
+        console.log('Fetching data loads...', { hours, source, coin });
+        
         const response = await fetch(`/api/data_loads?hours=${hours}&source=${source}&coin=${coin}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('Received data loads:', data);
         
-        if (data.error) {
-            throw new Error(data.error);
-        }
+        let html = '';
+        let totalRecords = 0;
         
-        // Update stats table
-        let tableHtml = '';
-        data.stats.forEach(stat => {
-            tableHtml += `
-                <tr>
-                    <td>${stat.source}</td>
-                    <td>${stat.symbol}</td>
-                    <td>${stat.count}</td>
-                </tr>
-            `;
-        });
-        document.getElementById('dataLoadStats').innerHTML = tableHtml;
-        
-        // Update summary stats
-        const totalRecords = data.stats.reduce((sum, stat) => sum + stat.count, 0);
-        const avgSentiment = data.stats.reduce((sum, stat) => sum + (stat.sentiment * stat.count), 0) / totalRecords;
-        
-        document.getElementById('totalRecordsValue').textContent = totalRecords;
-        document.getElementById('averageSentimentValue').textContent = avgSentiment.toFixed(3);
-        
-        // Populate source dropdown if needed
-        const sourceSelect = document.getElementById('chatSourceSelect');
-        if (sourceSelect.options.length <= 1) {  // Only has "All Sources" option
-            data.sources.forEach(source => {
-                sourceSelect.add(new Option(source.name, source.id));
+        if (Array.isArray(data)) {
+            data.forEach(row => {
+                if (row.LoadDate) {
+                    const date = new Date(row.LoadDate);
+                    const hour = date.toLocaleTimeString('en-GB', { 
+                        hour: 'numeric', 
+                        hour12: true 
+                    }).toLowerCase();
+                    const dayMonth = date.toLocaleDateString('en-GB', { 
+                        day: '2-digit', 
+                        month: '2-digit' 
+                    });
+                    const formattedDate = `${hour} ${dayMonth}`;
+                    
+                    html += `
+                        <tr>
+                            <td>${formattedDate}</td>
+                            <td>${row.ChatSource || 'N/A'}</td>
+                            <td>${row.Symbol || 'N/A'}</td>
+                            <td>${row.RecordsLoaded || 0}</td>
+                        </tr>
+                    `;
+                    totalRecords += row.RecordsLoaded || 0;
+                }
             });
         }
         
-        // Populate coin dropdown if needed
-        const coinSelect = document.getElementById('loadCoinSelect');
-        if (coinSelect.options.length <= 1) {  // Only has "All Coins" option
-            data.coins.forEach(coin => {
-                coinSelect.add(new Option(coin, coin));
-            });
+        const statsElement = document.getElementById('dataLoadStats');
+        if (statsElement) {
+            statsElement.innerHTML = html;
+        }
+        
+        const totalElement = document.getElementById('totalRecordsValue');
+        if (totalElement) {
+            totalElement.textContent = totalRecords;
         }
         
     } catch (error) {
         console.error('Error updating data loads:', error);
-        document.getElementById('dataLoadStats').innerHTML = `
-            <tr>
-                <td colspan="3" class="text-center text-danger">
-                    Error loading data: ${error.message}
-                </td>
-            </tr>
-        `;
-    } finally {
-        // Hide loading spinner
-        document.getElementById('loadingSpinner').style.display = 'none';
     }
 }
 
