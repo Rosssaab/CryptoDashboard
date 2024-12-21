@@ -246,51 +246,60 @@ async function updateMentionsCharts() {
     try {
         const timeRange = document.getElementById('timeRange').value;
         const sortBy = document.getElementById('sortBy').value;
-        
         const response = await fetch(`/api/mentions_chart?timerange=${timeRange}&sort_by=${sortBy}`);
         const data = await response.json();
-        
-        if (!data || !data.coins) {
-            throw new Error('Invalid data received');
-        }
 
         const container = document.getElementById('mentions-charts');
-        container.innerHTML = ''; // Clear existing charts
+        container.innerHTML = '';
 
         data.coins.forEach(coin => {
             const chartDiv = document.createElement('div');
             chartDiv.className = 'chart-container';
             container.appendChild(chartDiv);
 
-            const chart = echarts.init(chartDiv);
-            
-            const option = {
+            const total = Object.values(coin.sentiment_distribution).reduce((a, b) => a + b, 0);
+            const pieData = {
+                values: [],
+                labels: [],
+                type: 'pie',
+                hole: 0,
+                marker: {
+                    colors: ['#4CAF50', '#808080', '#FF4444']  // Green, Grey, Red
+                },
+                hovertemplate: '%{percent:.1f}%<extra></extra>',  // Show only percentage on hover
+                showlegend: false
+            };
+
+            // Add data points only if they have values
+            if (coin.sentiment_distribution['Positive'] > 0) {
+                pieData.values.push(coin.sentiment_distribution['Positive']);
+                pieData.labels.push('');  // Empty label
+            }
+            if (coin.sentiment_distribution['Neutral'] > 0) {
+                pieData.values.push(coin.sentiment_distribution['Neutral']);
+                pieData.labels.push('');  // Empty label
+            }
+            if (coin.sentiment_distribution['Negative'] > 0) {
+                pieData.values.push(coin.sentiment_distribution['Negative']);
+                pieData.labels.push('');  // Empty label
+            }
+
+            const layout = {
                 title: {
                     text: coin.symbol,
-                    left: 'center'
+                    y: 0.9
                 },
-                tooltip: {
-                    trigger: 'item'
-                },
-                series: [{
-                    type: 'pie',
-                    radius: '50%',
-                    data: [
-                        { value: coin.sentiment_distribution.Positive, name: 'Positive' },
-                        { value: coin.sentiment_distribution.Neutral, name: 'Neutral' },
-                        { value: coin.sentiment_distribution.Negative, name: 'Negative' }
-                    ],
-                    emphasis: {
-                        itemStyle: {
-                            shadowBlur: 10,
-                            shadowOffsetX: 0,
-                            shadowColor: 'rgba(0, 0, 0, 0.5)'
-                        }
-                    }
-                }]
+                height: 300,
+                width: 300,
+                margin: { t: 40, b: 0, l: 0, r: 0 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
             };
-            
-            chart.setOption(option);
+
+            Plotly.newPlot(chartDiv, [pieData], layout, {
+                displayModeBar: false,
+                responsive: true
+            });
         });
     } catch (error) {
         console.error('Error updating mentions charts:', error);
