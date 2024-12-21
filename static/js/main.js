@@ -78,6 +78,7 @@ function displayPredictions(data) {
                 <th><div>Symbol</div></th>
                 <th><div class="two-lines">Price When\nPredicted</div></th>
                 <th><div>Price Now</div></th>
+                <th><div>Change</div></th>
                 <th><div>Prediction 24h</div></th>
                 <th><div>Actual 24h</div></th>
                 <th><div>Predicted 7d</div></th>
@@ -99,6 +100,18 @@ function displayPredictions(data) {
         const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
         const hour = date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: true });
         
+        // Calculate percent change
+        const priceNow = p['Price Now'];
+        const pred24h = p['Prediction 24h'];
+        let changePercent = 'N/A';
+        
+        if (priceNow && pred24h && priceNow !== 0) {
+            const change = ((pred24h - priceNow) / priceNow) * 100;
+            // Color code based on positive/negative change
+            const color = change >= 0 ? 'text-success' : 'text-danger';
+            changePercent = `<span class="${color}">${change.toFixed(2)}%</span>`;
+        }
+        
         // Debug the data structure
         console.log('Row data structure:', p);
         
@@ -108,6 +121,7 @@ function displayPredictions(data) {
                 <td>${p.Symbol}</td>
                 <td>${p['Price When Predicted']?.toFixed(6) || 'N/A'}</td>
                 <td>${p['Price Now']?.toFixed(6) || 'N/A'}</td>
+                <td>${changePercent}</td>
                 <td>${p['Prediction 24h']?.toFixed(6) || 'N/A'}</td>
                 <td>${p['Actual 24h']?.toFixed(6) || 'N/A'}</td>
                 <td>${p['Predicted 7d']?.toFixed(6) || 'N/A'}</td>
