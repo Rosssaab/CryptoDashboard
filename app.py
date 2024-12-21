@@ -73,118 +73,154 @@ def get_price_data(coin):
         'volumes': df['volume'].tolist() if 'volume' in df.columns else []
     })
 
-@app.route('/api/sentiment/<coin>')
-def get_sentiment_data(coin):
+@app.route('/api/sentiment/daterange')
+def get_sentiment_date_range():
     try:
-        print(f"\n=== Starting sentiment request for coin: {coin} ===")
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Main query
-        if coin.lower() == 'all':
-            print("Executing query for all coins")
-            query = """
-                SELECT 
-                    CONVERT(DATE, timestamp) as date,
-                    COALESCE(sentiment_label, 'Neutral') as sentiment_label,
-                    COUNT(*) as count
-                FROM chat_data cd
-                JOIN Coins c ON cd.coin_id = c.coin_id
-                WHERE sentiment_label IN ('Positive', 'Neutral', 'Negative')
-                GROUP BY CONVERT(DATE, timestamp), sentiment_label
-                ORDER BY date
-            """
-            cursor.execute(query)
-        else:
-            print(f"Executing query for specific coin: {coin}")
-            query = """
-                SELECT 
-                    CONVERT(DATE, timestamp) as date,
-                    COALESCE(sentiment_label, 'Neutral') as sentiment_label,
-                    COUNT(*) as count
-                FROM chat_data cd
-                JOIN Coins c ON cd.coin_id = c.coin_id
-                WHERE c.symbol = ?
-                AND sentiment_label IN ('Positive', 'Neutral', 'Negative')
-                GROUP BY CONVERT(DATE, timestamp), sentiment_label
-                ORDER BY date
-            """
-            cursor.execute(query, [coin])
-            
-        rows = cursor.fetchall()
-        print(f"Query returned {len(rows)} rows")
+        query = """
+        SELECT 
+            MIN(CONVERT(DATE, timestamp)) as min_date,
+            MAX(CONVERT(DATE, timestamp)) as max_date
+        FROM chat_data cd
+        JOIN Coins c ON cd.coin_id = c.coin_id
+        WHERE cd.sentiment_label IS NOT NULL
+        """
         
-        # Debug: Print the first row to see its structure
-        if rows:
-            print(f"First row structure: {rows[0]}")
-            print(f"First row type: {type(rows[0])}")
+        cursor.execute(query)
+        row = cursor.fetchone()
         
-        # Convert rows to list of lists
-        data = [[row[0], row[1], row[2]] for row in rows]
-        
-        # Create DataFrame
-        df = pd.DataFrame(data, columns=['date', 'sentiment_label', 'count'])
-        
-        print(f"DataFrame shape: {df.shape}")
-        print(f"DataFrame columns: {df.columns}")
-        print(f"First few rows:\n{df.head()}")
-        
-        if df.empty:
+        if not row or not row[0] or not row[1]:
+            # Return default date range if no data
+            now = datetime.now()
+            week_ago = now - timedelta(days=7)
             return jsonify({
-                'dates': [],
-                'sentiment_data': {
-                    'Positive': [],
-                    'Neutral': [],
-                    'Negative': []
-                },
-                'colors': {
-                    'Positive': '#28a745',
-                    'Neutral': '#6c757d',
-                    'Negative': '#dc3545'
-                }
+                'minDate': week_ago.strftime('%Y-%m-%d'),
+                'maxDate': now.strftime('%Y-%m-%d')
             })
+            
+        return jsonify({
+            'minDate': row[0].strftime('%Y-%m-%d'),
+            'maxDate': row[1].strftime('%Y-%m-%d')
+        })
         
-        # Convert date to datetime
-        df['date'] = pd.to_datetime(df['date'])
+    except Exception as e:
+        print(f"Error in get_sentiment_date_range: {str(e)}")
+        # Return a default range on error
+        now = datetime.now()
+        week_ago = now - timedelta(days=7)
+        return jsonify({
+            'minDate': week_ago.strftime('%Y-%m-%d'),
+            'maxDate': now.strftime('%Y-%m-%d')
+        })
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/sentiment/<coin>')
+def get_sentiment_data(coin):
+    print(f"\n\n=== Starting sentiment data request for {coin} ===")
+    try:
+        start_date = request.args.get('start')
+        end_date = request.args.get('end')
         
-        # Get unique dates for x-axis
-        unique_dates = df['date'].dt.strftime('%Y-%m-%d').unique().tolist()
+        # Convert ISO dates to SQL Server format
+        try:
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            start_date = start_dt.strftime('%Y-%m-%d %H:%M:%S')
+            end_date = end_dt.strftime('%Y-%m-%d %H:%M:%S')
+        except Exception as e:
+            print(f"Date parsing error: {str(e)}")
+            return jsonify({'error': 'Invalid date format'}), 400
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        # Initialize sentiment data with zeros
+        # Modify query based on whether "All" is selected
+        if coin.lower() == 'all':
+            query = """
+            SELECT 
+                CONVERT(DATE, cd.timestamp) as date,
+                COALESCE(cd.sentiment_label, 'Neutral') as sentiment_label,
+                COUNT(*) as count
+            FROM chat_data cd
+            JOIN Coins c ON cd.coin_id = c.coin_id
+            WHERE cd.timestamp BETWEEN ? AND ?
+                AND cd.sentiment_label IS NOT NULL
+            GROUP BY CONVERT(DATE, cd.timestamp), cd.sentiment_label
+            ORDER BY date
+            """
+            cursor.execute(query, (start_date, end_date))
+        else:
+            query = """
+            SELECT 
+                CONVERT(DATE, cd.timestamp) as date,
+                COALESCE(cd.sentiment_label, 'Neutral') as sentiment_label,
+                COUNT(*) as count
+            FROM chat_data cd
+            JOIN Coins c ON cd.coin_id = c.coin_id
+            WHERE c.symbol = ?
+                AND cd.timestamp BETWEEN ? AND ?
+                AND cd.sentiment_label IS NOT NULL
+            GROUP BY CONVERT(DATE, cd.timestamp), cd.sentiment_label
+            ORDER BY date
+            """
+            cursor.execute(query, (coin, start_date, end_date))
+        
+        rows = cursor.fetchall()
+        print(f"\nQuery returned {len(rows)} rows")
+        
+        dates = []
         sentiment_data = {
-            'Positive': [0] * len(unique_dates),
-            'Neutral': [0] * len(unique_dates),
-            'Negative': [0] * len(unique_dates)
+            'Positive': [],
+            'Neutral': [],
+            'Negative': []
         }
         
-        # Fill in the actual values
-        for date, group in df.groupby('date'):
-            date_str = date.strftime('%Y-%m-%d')
-            date_idx = unique_dates.index(date_str)
-            for _, row in group.iterrows():
-                sentiment = row['sentiment_label']
-                if sentiment in sentiment_data:
-                    sentiment_data[sentiment][date_idx] = int(row['count'])
+        current_date = None
+        current_data = {'Positive': 0, 'Neutral': 0, 'Negative': 0}
         
-        return jsonify({
-            'dates': unique_dates,
+        for row in rows:
+            # The date is already a string in YYYY-MM-DD format from SQL Server
+            date = str(row[0])  # Convert to string in case it's not already
+            sentiment = row[1]
+            count = row[2]
+            
+            if date not in dates:
+                if current_date is not None:
+                    for sentiment_type in sentiment_data:
+                        sentiment_data[sentiment_type].append(current_data[sentiment_type])
+                
+                dates.append(date)
+                current_date = date
+                current_data = {'Positive': 0, 'Neutral': 0, 'Negative': 0}
+            
+            if sentiment in current_data:
+                current_data[sentiment] = count
+        
+        if current_date is not None:
+            for sentiment_type in sentiment_data:
+                sentiment_data[sentiment_type].append(current_data[sentiment_type])
+        
+        response_data = {
+            'dates': dates,
             'sentiment_data': sentiment_data,
             'colors': {
                 'Positive': '#28a745',
                 'Neutral': '#6c757d',
                 'Negative': '#dc3545'
             }
-        })
+        }
+        
+        print(f"Returning data structure with {len(dates)} dates")
+        return jsonify(response_data)
         
     except Exception as e:
         print(f"Error in get_sentiment_data: {str(e)}")
-        traceback.print_exc()
-        return jsonify({
-            'error': str(e),
-            'dates': [],
-            'sentiment_data': {},
-            'colors': {}
-        }), 500
+        print(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
         
     finally:
         if 'conn' in locals():

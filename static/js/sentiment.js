@@ -1,32 +1,68 @@
-// Sentiment tab functionality
+let sentimentChart = null;
+let dateSlider = null;
+
 async function updateSentimentChart() {
     try {
         const coin = document.getElementById('sentimentCoinSelect').value;
         if (!coin) return;
         
-        console.log('Fetching sentiment data for:', coin);
-        const response = await fetch(`/api/sentiment/${coin}`);
-        const data = await response.json();
-        
-        console.log('Received sentiment data:', data);
-        
-        // Make sure we have a chart container
-        const chartContainer = document.getElementById('sentiment-chart');
-        if (!chartContainer) {
-            console.error('Chart container not found');
+        // Make sure dateSlider is initialized
+        if (!dateSlider || !dateSlider.noUiSlider) {
+            console.warn('Date slider not initialized yet');
             return;
         }
         
-        // Initialize or get existing chart
-        let chart = echarts.getInstanceByDom(chartContainer);
-        if (!chart) {
-            chart = echarts.init(chartContainer);
+        // Get date range from slider
+        const dateRange = dateSlider.noUiSlider.get();
+        const startDate = new Date(parseInt(dateRange[0]));
+        const endDate = new Date(parseInt(dateRange[1]));
+        
+        // Show loading indicator
+        const chartContainer = document.getElementById('sentiment-chart');
+        if (!chartContainer) return;
+        
+        chartContainer.innerHTML = `
+            <div class="text-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div class="mt-2">Loading sentiment data for ${coin}...</div>
+            </div>
+        `;
+        
+        // Safely dispose of existing chart
+        if (sentimentChart) {
+            try {
+                sentimentChart.dispose();
+            } catch (e) {
+                console.warn('Error disposing chart:', e);
+            }
+            sentimentChart = null;
         }
         
-        // Verify we have the required data
+        const response = await fetch(`/api/sentiment/${coin}?start=${startDate.toISOString()}&end=${endDate.toISOString()}`);
+        const data = await response.json();
+        
+        // Clear the loading message
+        chartContainer.innerHTML = '';
+        
+        // Create new chart
+        sentimentChart = echarts.init(chartContainer);
+        
+        // Verify data
         if (!data.dates || !data.sentiment_data || !data.colors) {
-            console.error('Invalid data structure:', data);
-            chartContainer.innerHTML = '<div class="alert alert-danger">Invalid data format received</div>';
+            throw new Error('Invalid data structure received');
+        }
+
+        // Check for empty data
+        const hasData = Object.values(data.sentiment_data).some(arr => arr.length > 0);
+        if (!hasData) {
+            chartContainer.innerHTML = `
+                <div class="alert alert-info m-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No sentiment data available for ${coin} in the selected date range
+                </div>
+            `;
             return;
         }
         
@@ -73,27 +109,94 @@ async function updateSentimentChart() {
             }))
         };
         
-        console.log('Chart options:', option);
-        chart.setOption(option, true);
+        sentimentChart.setOption(option);
         
         // Handle window resize
-        window.addEventListener('resize', () => {
-            chart.resize();
-        });
+        const handleResize = () => sentimentChart?.resize();
+        window.removeEventListener('resize', handleResize);
+        window.addEventListener('resize', handleResize);
         
     } catch (error) {
         console.error('Error updating sentiment chart:', error);
         const chartContainer = document.getElementById('sentiment-chart');
         if (chartContainer) {
-            chartContainer.innerHTML = '<div class="alert alert-danger">Error loading sentiment data</div>';
+            chartContainer.innerHTML = `
+                <div class="alert alert-danger m-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading sentiment data: ${error.message}
+                </div>
+            `;
         }
     }
 }
 
-// Add event listener for coin selection
+// Initialize the date range slider
+async function initializeDateRange() {
+    try {
+        const response = await fetch('/api/sentiment/daterange');
+        const { minDate, maxDate } = await response.json();
+        
+        const sliderElement = document.getElementById('dateSlider');
+        if (!sliderElement) return;
+        
+        // Convert dates to timestamps
+        const minTimestamp = new Date(minDate).getTime();
+        const maxTimestamp = new Date(maxDate).getTime();
+        
+        // Create noUiSlider
+        if (sliderElement.noUiSlider) {
+            sliderElement.noUiSlider.destroy();
+        }
+        
+        noUiSlider.create(sliderElement, {
+            start: [minTimestamp, maxTimestamp],
+            connect: true,
+            range: {
+                'min': minTimestamp,
+                'max': maxTimestamp
+            },
+            step: 24 * 60 * 60 * 1000 // One day in milliseconds
+        });
+        
+        // Store the slider instance
+        dateSlider = sliderElement;
+        
+        // Update display when slider changes
+        dateSlider.noUiSlider.on('update', function (values) {
+            const startDate = new Date(parseInt(values[0]));
+            const endDate = new Date(parseInt(values[1]));
+            
+            document.getElementById('sentimentDateDisplay').textContent = 
+                `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+        });
+        
+        // Update chart when sliding stops
+        dateSlider.noUiSlider.on('change', updateSentimentChart);
+        
+        // Initial chart update
+        if (document.getElementById('sentimentCoinSelect').value) {
+            updateSentimentChart();
+        }
+        
+    } catch (error) {
+        console.error('Error initializing date range:', error);
+        const dateDisplay = document.getElementById('sentimentDateDisplay');
+        if (dateDisplay) {
+            dateDisplay.textContent = 'Error loading date range';
+        }
+    }
+}
+
+// Add event listeners when the document is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize date range first
+    initializeDateRange();
+    
     // Add change event listener to coin select
-    document.getElementById('sentimentCoinSelect')?.addEventListener('change', updateSentimentChart);
+    const coinSelect = document.getElementById('sentimentCoinSelect');
+    if (coinSelect) {
+        coinSelect.addEventListener('change', updateSentimentChart);
+    }
     
     // Fetch available coins for sentiment analysis
     fetch('/api/coins?tab=sentiment')
@@ -113,4 +216,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Export the function so it's available to main.js
-window.updateSentimentChart = updateSentimentChart; 
+window.updateSentimentChart = updateSentimentChart;
