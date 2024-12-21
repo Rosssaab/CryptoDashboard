@@ -25,10 +25,25 @@ async function openTab(evt, tabName) {
         evt.currentTarget.className += " active";
 
         // Initialize data based on tab
-        if (tabName === 'Predictions') {
+        if (tabName === 'DataLoads') {
+            // Show loading spinner
+            const spinner = document.getElementById('loadingSpinner');
+            if (spinner) spinner.style.display = 'block';
+            
+            try {
+                await updateDataLoads();
+            } finally {
+                // Hide spinner regardless of success/failure
+                if (spinner) spinner.style.display = 'none';
+            }
+        } else if (tabName === 'Predictions') {
             await initializePredictions();
         } else if (tabName === 'Sentiment') {
             await initializeSentiment();
+        } else if (tabName === 'Mentions') {
+            await updateMentionsCharts();
+        } else if (tabName === 'Price') {
+            await updatePriceChart();
         }
     } catch (error) {
         console.error('Error in openTab:', error);
@@ -39,6 +54,15 @@ async function openTab(evt, tabName) {
 async function initializePredictions() {
     try {
         console.log('Initializing predictions...');
+        
+        // Set today's date in the date picker
+        const today = new Date();
+        const dateString = today.toISOString().split('T')[0];  // Format: YYYY-MM-DD
+        const datePicker = document.getElementById('predictionsDateFilter');
+        if (datePicker) {
+            datePicker.value = dateString;
+        }
+        
         await updatePredictions();
     } catch (error) {
         console.error('Error initializing predictions:', error);
@@ -49,7 +73,8 @@ async function initializePredictions() {
 async function updatePredictions() {
     try {
         console.log('Fetching predictions...');
-        const response = await fetch('/api/predictions');
+        const dateFilter = document.getElementById('predictionsDateFilter')?.value || '';
+        const response = await fetch(`/api/predictions?date=${dateFilter}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -71,25 +96,25 @@ function displayPredictions(data) {
     console.log('Displaying predictions:', data.predictions.length, 'rows');
     
     let html = `
-    <table class="predictions-table">
+    <table class="table table-hover predictions-table">
         <thead>
             <tr>
-                <th><div>Prediction Date</div></th>
-                <th><div>Symbol</div></th>
-                <th><div class="two-lines">Price When\nPredicted</div></th>
-                <th><div>Price Now</div></th>
-                <th><div>Change</div></th>
-                <th><div>Prediction 24h</div></th>
-                <th><div>Actual 24h</div></th>
-                <th><div>Predicted 7d</div></th>
-                <th><div>Actual 7d</div></th>
-                <th><div>Pred 30d</div></th>
-                <th><div>Actual 30d</div></th>
-                <th><div>Pred 90d</div></th>
-                <th><div>Actual 90d</div></th>
-                <th><div>Sentiment</div></th>
-                <th><div>Confidence</div></th>
-                <th><div>Accuracy</div></th>
+                <th><div class="rotated-header">Prediction Date</div></th>
+                <th><div class="rotated-header">Symbol</div></th>
+                <th><div class="rotated-header">Price When Predicted</div></th>
+                <th><div class="rotated-header">Price Now</div></th>
+                <th><div class="rotated-header">Change</div></th>
+                <th><div class="rotated-header">Prediction 24h</div></th>
+                <th><div class="rotated-header">Actual 24h</div></th>
+                <th><div class="rotated-header">Predicted 7d</div></th>
+                <th><div class="rotated-header">Actual 7d</div></th>
+                <th><div class="rotated-header">Pred 30d</div></th>
+                <th><div class="rotated-header">Actual 30d</div></th>
+                <th><div class="rotated-header">Pred 90d</div></th>
+                <th><div class="rotated-header">Actual 90d</div></th>
+                <th><div class="rotated-header">Sentiment</div></th>
+                <th><div class="rotated-header">Confidence</div></th>
+                <th><div class="rotated-header">Accuracy</div></th>
             </tr>
         </thead>
         <tbody>
@@ -97,8 +122,13 @@ function displayPredictions(data) {
 
     data.predictions.forEach(p => {
         const date = new Date(p.PredictionDate);
-        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
-        const hour = date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: true });
+        // Format: hour + day/month (UK format)
+        const hour = date.toLocaleTimeString('en-GB', { hour: 'numeric', hour12: true }).toLowerCase();
+        const dayMonth = date.toLocaleDateString('en-GB', { 
+            day: '2-digit', 
+            month: '2-digit' 
+        });
+        const formattedDate = `${hour} ${dayMonth}`;
         
         // Calculate percent change
         const priceNow = p['Price Now'];
@@ -107,7 +137,6 @@ function displayPredictions(data) {
         
         if (priceNow && pred24h && priceNow !== 0) {
             const change = ((pred24h - priceNow) / priceNow) * 100;
-            // Color code based on positive/negative change
             const color = change >= 0 ? 'text-success' : 'text-danger';
             changePercent = `<span class="${color}">${change.toFixed(2)}%</span>`;
         }
@@ -117,7 +146,7 @@ function displayPredictions(data) {
         
         html += `
             <tr>
-                <td>${dayOfWeek} ${hour}</td>
+                <td>${formattedDate}</td>
                 <td>${p.Symbol}</td>
                 <td>${p['Price When Predicted']?.toFixed(6) || 'N/A'}</td>
                 <td>${p['Price Now']?.toFixed(6) || 'N/A'}</td>
@@ -147,27 +176,51 @@ function displayPredictions(data) {
 
 // Make sure the Predictions tab is opened by default when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelector('.tablinks').click();
+    // Find the first tab button
+    const firstTab = document.querySelector('.nav-link.btn-primary');
+    if (firstTab) {
+        firstTab.click();
+    } else {
+        console.warn('No tab buttons found on page load');
+    }
 });
 
-// Add this function at the beginning of your file
+// Add this function to fetch and populate chat sources
+async function initializeChatSources() {
+    try {
+        const response = await fetch('/api/chat_sources');
+        const sources = await response.json();
+        
+        const sourceSelect = document.getElementById('chatSourceSelect');
+        if (sourceSelect) {
+            sourceSelect.innerHTML = '<option value="all">All Sources</option>';
+            sources.forEach(source => {
+                const option = new Option(source, source);
+                sourceSelect.add(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error initializing chat sources:', error);
+    }
+}
+
+// Update the initializeSelects function
 async function initializeSelects() {
     try {
-        // Fetch coins for all dropdowns
+        // Fetch coins for dropdowns
         const response = await fetch('/api/coin_names');
         const coins = await response.json();
         
         // Populate coin selects
         const selects = [
-            'sentimentCoinSelect',  // Sentiment tab
-            'loadCoinSelect'        // Data Loads tab
+            'sentimentCoinSelect',
+            'loadCoinSelect'
         ];
         
-        // Add "All Coins" option to specified dropdowns
         selects.forEach(selectId => {
             const select = document.getElementById(selectId);
             if (select) {
-                select.innerHTML = '<option value="all">All Coins</option>'; // Add "All Coins" option
+                select.innerHTML = '<option value="all">All Coins</option>';
                 Object.entries(coins).forEach(([symbol, name]) => {
                     const option = new Option(`${symbol} - ${name}`, symbol);
                     select.add(option);
@@ -175,24 +228,8 @@ async function initializeSelects() {
             }
         });
 
-        // Populate price tab dropdown separately (without "All" option)
-        const priceSelect = document.getElementById('coinSelect');
-        if (priceSelect) {
-            priceSelect.innerHTML = ''; // Clear existing options
-            Object.entries(coins).forEach(([symbol, name]) => {
-                const option = new Option(`${symbol} - ${name}`, symbol);
-                priceSelect.add(option);
-            });
-        }
-
-        // Initial chart updates
-        if (document.getElementById('coinSelect').value) {
-            updatePriceChart();
-        }
-        if (document.getElementById('sentimentCoinSelect').value) {
-            updateSentimentChart();
-        }
-        
+        // Initialize chat sources
+        await initializeChatSources();
     } catch (error) {
         console.error('Error initializing selects:', error);
     }
@@ -486,6 +523,7 @@ document.getElementById('sentimentCoinSelect')?.addEventListener('change', updat
 document.getElementById('loadHoursSelect')?.addEventListener('change', updateDataLoads);
 document.getElementById('chatSourceSelect')?.addEventListener('change', updateDataLoads);
 document.getElementById('loadCoinSelect')?.addEventListener('change', updateDataLoads);
+document.getElementById('predictionsDateFilter')?.addEventListener('change', updatePredictions);
 
 // When populating the price tab's coin selector
 fetch('/api/coins?tab=price')
@@ -512,3 +550,8 @@ fetch('/api/coins?tab=sentiment')
       sentimentCoinSelect.appendChild(option);
     });
   });
+
+// Add event listener for the predictions date filter
+document.getElementById('predictionsDateFilter')?.addEventListener('change', async () => {
+    await updatePredictions();
+});
