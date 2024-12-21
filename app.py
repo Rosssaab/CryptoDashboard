@@ -7,6 +7,7 @@ from utils.chart_utils import ChartManager
 import pyodbc
 import traceback
 from config import DB_CONNECTION_STRING  # Import the full connection string
+import decimal
 
 app = Flask(__name__)
 db_manager = DatabaseManager()
@@ -443,77 +444,58 @@ def get_sentiment_distribution():
         print(f"Error in get_sentiment_distribution: {str(e)}")
         return jsonify({})
 
-@app.route('/api/predictions/<symbol>')
-def get_predictions(symbol):
+@app.route('/api/predictions')
+def get_predictions():
     try:
-        filter_date = request.args.get('filter_date')
-        
         conn = get_db_connection()
         cursor = conn.cursor()
-
-        query = """
-            SELECT *
+        
+        # Print column names for debugging
+        cursor.execute("SELECT TOP 1 * FROM vw_predictions")
+        columns = [column[0] for column in cursor.description]
+        print("Column names:", columns)
+        
+        cursor.execute("""
+            SELECT 
+                PredictionDate,
+                Symbol,
+                [Price When Predicted],
+                [Price Now],
+                [Prediction 24h],
+                [Actual 24h],
+                [Predicted 7d],
+                [Actual 7d],
+                [Pred 30d],
+                [Actual 30d],
+                [Pred 90d],
+                [Actual 90d],
+                Sentiment,
+                Confidence,
+                Accuracy
             FROM vw_predictions
-            WHERE 1=1
-        """
+            ORDER BY PredictionDate DESC
+        """)
         
-        params = []
+        # Get column names from the cursor
+        columns = [column[0] for column in cursor.description]
         
-        if symbol.lower() != 'all':
-            query += " AND Symbol = ?"
-            params.append(symbol)
-            
-        if filter_date:
-            query += " AND CAST(PredictionDate AS DATE) = CAST(? AS DATE)"
-            params.append(filter_date)
-            
-        query += " ORDER BY PredictionDate DESC"
-
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
+        predictions = []
+        for row in cursor.fetchall():
+            # Convert row to dict with correct column names
+            prediction = {}
+            for i, value in enumerate(row):
+                # Convert Decimal to float for JSON serialization
+                if isinstance(value, decimal.Decimal):
+                    prediction[columns[i]] = float(value)
+                else:
+                    prediction[columns[i]] = value
+            predictions.append(prediction)
         
-        # Debug: Print column names
-        print(f"First row column names: {[column[0] for column in cursor.description]}")
-
-        results = []
-        for row in rows:
-            # Convert row to dictionary for easier access
-            row_dict = {column[0]: value for column, value in zip(cursor.description, row)}
-            
-            result = {
-                'PredictionDate': row_dict['PredictionDate'].isoformat() if row_dict['PredictionDate'] else None,
-                'Symbol': row_dict['Symbol'],
-                'Price When Predicted': float(row_dict['Price When Predicted']) if row_dict['Price When Predicted'] else None,
-                'Prediction 24h': float(row_dict['Prediction 24h']) if row_dict['Prediction 24h'] else None,
-                'Actual 24h': float(row_dict['Actual 24h']) if row_dict['Actual 24h'] else None,
-                'Predicted 7d': float(row_dict['Predicted 7d']) if row_dict['Predicted 7d'] else None,
-                'Actual 7d': float(row_dict['Actual 7d']) if row_dict['Actual 7d'] else None,
-                'Pred 30d': float(row_dict['Pred 30d']) if row_dict['Pred 30d'] else None,
-                'Actual 30d': float(row_dict['Actual 30d']) if row_dict['Actual 30d'] else None,
-                'Pred 90d': float(row_dict['Pred 90d']) if row_dict['Pred 90d'] else None,
-                'Actual 90d': float(row_dict['Actual 90d']) if row_dict['Actual 90d'] else None,
-                'Sentiment': row_dict['Sentiment'],
-                'Confidence': float(row_dict['Confidence']) if row_dict['Confidence'] else None,
-                'Accuracy': float(row_dict['Accuracy']) if row_dict['Accuracy'] else None
-            }
-            results.append(result)
-
-        return jsonify({
-            'predictions': results,
-            'symbol': symbol
-        })
-
+        return jsonify({'predictions': predictions})
+        
     except Exception as e:
         print(f"Error in get_predictions: {str(e)}")
-        traceback.print_exc()
-        return jsonify({
-            'error': str(e),
-            'predictions': []
-        }), 500
-
-    finally:
-        if 'conn' in locals():
-            conn.close()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/data_loads')
 def get_data_loads():

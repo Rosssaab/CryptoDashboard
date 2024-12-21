@@ -6,209 +6,135 @@ function formatDateTime(dateString) {
 }
 
 // Tab handling
-function openTab(evt, tabName) {
-    var tabcontent = document.getElementsByClassName("tabcontent");
-    for (var i = 0; i < tabcontent.length; i++) {
-        tabcontent[i].style.display = "none";
-    }
+async function openTab(evt, tabName) {
+    try {
+        // Hide all content
+        const tabcontent = document.getElementsByClassName("tabcontent");
+        for (let i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
 
-    var tablinks = document.getElementsByClassName("nav-link");
-    for (var i = 0; i < tablinks.length; i++) {
-        tablinks[i].classList.remove("active");
-    }
+        // Remove active class from tabs
+        const tablinks = document.getElementsByClassName("tablinks");
+        for (let i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
 
-    document.getElementById(tabName).style.display = "block";
-    evt.currentTarget.classList.add("active");
+        // Show current tab and mark it active
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
 
-    switch(tabName) {
-        case 'Mentions':
-            updateMentionsCharts();
-            break;
-        case 'Price':
-            updatePriceChart();
-            break;
-        case 'Sentiment':
-            updateSentimentChart();
-            break;
-        case 'Predictions':
-            initializePredictions();
-            break;
-        case 'DataLoads':
-            updateDataLoads();
-            break;
+        // Initialize data based on tab
+        if (tabName === 'Predictions') {
+            await initializePredictions();
+        } else if (tabName === 'Sentiment') {
+            await initializeSentiment();
+        }
+    } catch (error) {
+        console.error('Error in openTab:', error);
     }
 }
 
+// Initialize predictions
 async function initializePredictions() {
     try {
-        // Fetch coins for dropdown
-        const response = await fetch('/api/coin_names');
-        const coins = await response.json();
-        
-        // Populate coin select
-        const coinSelect = document.getElementById('predictionsCoinSelect');
-        coinSelect.innerHTML = '<option value="all">All Coins</option>';
-        
-        Object.entries(coins).forEach(([symbol, name]) => {
-            const option = new Option(`${symbol} - ${name}`, symbol);
-            coinSelect.add(option);
-        });
-
-        // Add event listeners
-        coinSelect.addEventListener('change', updatePredictions);
-        document.getElementById('predictionsDateFilter').addEventListener('change', updatePredictions);
-        
-        // Initial load
-        updatePredictions();
+        console.log('Initializing predictions...');
+        await updatePredictions();
     } catch (error) {
         console.error('Error initializing predictions:', error);
     }
 }
 
+// Update predictions
 async function updatePredictions() {
     try {
-        const selectedCoin = document.getElementById('predictionsCoinSelect').value || 'all';
-        const selectedDate = document.getElementById('predictionsDateFilter').value;
-        const predictionsContainer = document.getElementById('predictionsContainer');
-
-        let url = `/api/predictions/${selectedCoin}`;
-        if (selectedDate) {
-            url += `?filter_date=${selectedDate}`;
+        console.log('Fetching predictions...');
+        const response = await fetch('/api/predictions');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-
-        const response = await fetch(url);
         const data = await response.json();
-
-        if (!data || !data.predictions) {
-            throw new Error('Invalid data received');
-        }
-
-        let html = `
-            <style>
-                .predictions-table th {
-                    height: 80px;
-                    white-space: nowrap;
-                    padding: 0 !important;
-                    vertical-align: bottom;
-                }
-                
-                .predictions-table th > div {
-                    transform: rotate(-45deg);
-                    transform-origin: left bottom;
-                    position: relative;
-                    left: 50%;
-                    bottom: 0;
-                    margin-left: -10px;
-                    width: 120px;
-                }
-                
-                .predictions-table td {
-                    text-align: right;
-                    padding: 8px;
-                }
-                
-                .predictions-table td:first-child,
-                .predictions-table td:nth-child(2) {
-                    text-align: left;
-                }
-
-                .two-lines {
-                    white-space: pre-line;
-                }
-
-                /* Price When Predicted and Price Now column styling */
-                .predictions-table th:nth-child(3),
-                .predictions-table td:nth-child(3),
-                .predictions-table th:nth-child(4),
-                .predictions-table td:nth-child(4) {
-                    background-color: #f4f4f4;
-                    color: #333;
-                    font-weight: 500;
-                }
-
-                /* Prediction columns styling (24h, 7d, 30d, 90d) */
-                .predictions-table th:nth-child(5),
-                .predictions-table td:nth-child(5),
-                .predictions-table th:nth-child(7),
-                .predictions-table td:nth-child(7),
-                .predictions-table th:nth-child(9),
-                .predictions-table td:nth-child(9),
-                .predictions-table th:nth-child(11),
-                .predictions-table td:nth-child(11) {
-                    background-color: #fffff0;
-                    color: #333;
-                    font-weight: 500;
-                }
-
-                /* Ensure the background covers the entire cell */
-                .predictions-table td:nth-child(3),
-                .predictions-table td:nth-child(4),
-                .predictions-table td:nth-child(5),
-                .predictions-table td:nth-child(7),
-                .predictions-table td:nth-child(9),
-                .predictions-table td:nth-child(11) {
-                    position: relative;
-                    z-index: 1;
-                }
-            </style>
-            <table class="table table-hover predictions-table">
-                <thead>
-                    <tr>
-                        <th><div>Prediction Date</div></th>
-                        <th><div>Symbol</div></th>
-                        <th><div class="two-lines">Price When\nPredicted</div></th>
-                        <th><div class="two-lines">Price\nNow</div></th>
-                        <th><div>Prediction 24h</div></th>
-                        <th><div>Actual 24h</div></th>
-                        <th><div>Predicted 7d</div></th>
-                        <th><div>Actual 7d</div></th>
-                        <th><div>Pred 30d</div></th>
-                        <th><div>Actual 30d</div></th>
-                        <th><div>Pred 90d</div></th>
-                        <th><div>Actual 90d</div></th>
-                        <th><div>Sentiment</div></th>
-                        <th><div>Confidence</div></th>
-                        <th><div>Accuracy</div></th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        data.predictions.forEach(p => {
-            const date = new Date(p.PredictionDate);
-            const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
-            const hour = date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: true });
-            
-            html += `
-                <tr>
-                    <td>${dayOfWeek} ${hour}</td>
-                    <td>${p.Symbol}</td>
-                    <td>${p['Price When Predicted']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p['Price Now']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p['Prediction 24h']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p['Actual 24h']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p['Predicted 7d']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p['Actual 7d']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p['Pred 30d']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p['Actual 30d']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p['Pred 90d']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p['Actual 90d']?.toFixed(6) || 'N/A'}</td>
-                    <td>${p.Sentiment || 'N/A'}</td>
-                    <td>${p.Confidence?.toFixed(1) || 'N/A'}%</td>
-                    <td>${p.Accuracy?.toFixed(1) || 'N/A'}%</td>
-                </tr>
-            `;
-        });
-
-        html += '</tbody></table>';
-        predictionsContainer.innerHTML = html;
-
+        console.log('Received predictions:', data);
+        displayPredictions(data);
     } catch (error) {
         console.error('Error loading predictions:', error);
-        document.getElementById('predictionsContainer').innerHTML = 
-            '<div class="alert alert-danger">Error loading predictions</div>';
     }
 }
+
+// Display predictions
+function displayPredictions(data) {
+    if (!data || !data.predictions) {
+        console.error('No prediction data received');
+        return;
+    }
+
+    console.log('Displaying predictions:', data.predictions.length, 'rows');
+    
+    let html = `
+    <table class="predictions-table">
+        <thead>
+            <tr>
+                <th><div>Prediction Date</div></th>
+                <th><div>Symbol</div></th>
+                <th><div class="two-lines">Price When\nPredicted</div></th>
+                <th><div>Price Now</div></th>
+                <th><div>Prediction 24h</div></th>
+                <th><div>Actual 24h</div></th>
+                <th><div>Predicted 7d</div></th>
+                <th><div>Actual 7d</div></th>
+                <th><div>Pred 30d</div></th>
+                <th><div>Actual 30d</div></th>
+                <th><div>Pred 90d</div></th>
+                <th><div>Actual 90d</div></th>
+                <th><div>Sentiment</div></th>
+                <th><div>Confidence</div></th>
+                <th><div>Accuracy</div></th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+    data.predictions.forEach(p => {
+        const date = new Date(p.PredictionDate);
+        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const hour = date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: true });
+        
+        // Debug the data structure
+        console.log('Row data structure:', p);
+        
+        html += `
+            <tr>
+                <td>${dayOfWeek} ${hour}</td>
+                <td>${p.Symbol}</td>
+                <td>${p['Price When Predicted']?.toFixed(6) || 'N/A'}</td>
+                <td>${p['Price Now']?.toFixed(6) || 'N/A'}</td>
+                <td>${p['Prediction 24h']?.toFixed(6) || 'N/A'}</td>
+                <td>${p['Actual 24h']?.toFixed(6) || 'N/A'}</td>
+                <td>${p['Predicted 7d']?.toFixed(6) || 'N/A'}</td>
+                <td>${p['Actual 7d']?.toFixed(6) || 'N/A'}</td>
+                <td>${p['Pred 30d']?.toFixed(6) || 'N/A'}</td>
+                <td>${p['Actual 30d']?.toFixed(6) || 'N/A'}</td>
+                <td>${p['Pred 90d']?.toFixed(6) || 'N/A'}</td>
+                <td>${p['Actual 90d']?.toFixed(6) || 'N/A'}</td>
+                <td>${p.Sentiment || 'N/A'}</td>
+                <td>${p.Confidence?.toFixed(1) || 'N/A'}%</td>
+                <td>${p.Accuracy?.toFixed(1) || 'N/A'}%</td>
+            </tr>
+        `;
+    });
+
+    html += `
+        </tbody>
+    </table>
+    `;
+
+    document.getElementById('predictions-content').innerHTML = html;
+}
+
+// Make sure the Predictions tab is opened by default when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelector('.tablinks').click();
+});
 
 // Add this function at the beginning of your file
 async function initializeSelects() {
