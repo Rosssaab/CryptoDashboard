@@ -257,6 +257,7 @@ async function updateMentionsCharts() {
             chartDiv.className = 'chart-container';
             container.appendChild(chartDiv);
 
+<<<<<<< HEAD
             const total = Object.values(coin.sentiment_distribution).reduce((a, b) => a + b, 0);
             const pieData = {
                 values: [],
@@ -285,15 +286,80 @@ async function updateMentionsCharts() {
             }
 
             const layout = {
+=======
+            const chart = echarts.init(chartDiv);
+            
+            const total = Object.values(coin.sentiment_distribution).reduce((a, b) => a + b, 0);
+            
+            const pieData = [
+                {
+                    name: 'Positive',  // Keep original name for tooltip
+                    value: coin.sentiment_distribution.Positive,
+                    itemStyle: { color: '#28a745' },
+                    label: {
+                        formatter: `${((coin.sentiment_distribution.Positive / total) * 100).toFixed(1)}%`,
+                        position: 'inside',
+                        fontSize: 14,
+                        color: '#fff'
+                    }
+                },
+                {
+                    name: 'Neutral',
+                    value: coin.sentiment_distribution.Neutral,
+                    itemStyle: { color: '#6c757d' },
+                    label: {
+                        formatter: `${((coin.sentiment_distribution.Neutral / total) * 100).toFixed(1)}%`,
+                        position: 'inside',
+                        fontSize: 14,
+                        color: '#fff'
+                    }
+                },
+                {
+                    name: 'Negative',
+                    value: coin.sentiment_distribution.Negative,
+                    itemStyle: { color: '#dc3545' },
+                    label: {
+                        formatter: `${((coin.sentiment_distribution.Negative / total) * 100).toFixed(1)}%`,
+                        position: 'inside',
+                        fontSize: 14,
+                        color: '#fff'
+                    }
+                }
+            ];
+            
+            const option = {
+>>>>>>> dc66282fb728f3e13ae31f0e9e97e53cff8fbb35
                 title: {
                     text: coin.symbol,
                     y: 0.9
                 },
+<<<<<<< HEAD
                 height: 300,
                 width: 300,
                 margin: { t: 40, b: 0, l: 0, r: 0 },
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(0,0,0,0)'
+=======
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{b}: {c} mentions'
+                },
+                series: [{
+                    type: 'pie',
+                    radius: '70%',
+                    data: pieData,
+                    label: {
+                        show: true
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 10,
+                            shadowOffsetX: 0,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                        }
+                    }
+                }]
+>>>>>>> dc66282fb728f3e13ae31f0e9e97e53cff8fbb35
             };
 
             Plotly.newPlot(chartDiv, [pieData], layout, {
@@ -460,6 +526,9 @@ async function updateDataLoads() {
         
         console.log('Fetching data loads...', { hours, source, coin });
         
+        const spinner = document.getElementById('loadingSpinner');
+        if (spinner) spinner.style.display = 'block';
+        
         const response = await fetch(`/api/data_loads?hours=${hours}&source=${source}&coin=${coin}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -510,8 +579,16 @@ async function updateDataLoads() {
         
     } catch (error) {
         console.error('Error updating data loads:', error);
+    } finally {
+        const spinner = document.getElementById('loadingSpinner');
+        if (spinner) spinner.style.display = 'none';
     }
 }
+
+// Event listeners for filters
+document.getElementById('loadHoursSelect')?.addEventListener('change', updateDataLoads);
+document.getElementById('chatSourceSelect')?.addEventListener('change', updateDataLoads);
+document.getElementById('loadCoinSelect')?.addEventListener('change', updateDataLoads);
 
 // Add event listeners for the filter controls
 document.getElementById('timeRange')?.addEventListener('change', updateMentionsCharts);
@@ -519,9 +596,6 @@ document.getElementById('sortBy')?.addEventListener('change', updateMentionsChar
 document.getElementById('coinSelect')?.addEventListener('change', updatePriceChart);
 document.getElementById('priceTimeRange')?.addEventListener('change', updatePriceChart);
 document.getElementById('sentimentCoinSelect')?.addEventListener('change', updateSentimentChart);
-document.getElementById('loadHoursSelect')?.addEventListener('change', updateDataLoads);
-document.getElementById('chatSourceSelect')?.addEventListener('change', updateDataLoads);
-document.getElementById('loadCoinSelect')?.addEventListener('change', updateDataLoads);
 document.getElementById('predictionsDateFilter')?.addEventListener('change', updatePredictions);
 
 // When populating the price tab's coin selector
@@ -554,3 +628,58 @@ fetch('/api/coins?tab=sentiment')
 document.getElementById('predictionsDateFilter')?.addEventListener('change', async () => {
     await updatePredictions();
 });
+
+// Update the createPieChart function
+function createPieChart(data, containerId) {
+    const chart = echarts.init(document.getElementById(containerId));
+    
+    // Calculate total for percentages
+    const total = Object.values(data.sentiment_distribution).reduce((a, b) => a + b, 0);
+    
+    // Create data array with percentages
+    const pieData = [
+        {
+            name: ((data.sentiment_distribution.Positive / total) * 100).toFixed(1) + '%',
+            value: data.sentiment_distribution.Positive,
+            itemStyle: { color: '#28a745' }  // green
+        },
+        {
+            name: ((data.sentiment_distribution.Neutral / total) * 100).toFixed(1) + '%',
+            value: data.sentiment_distribution.Neutral,
+            itemStyle: { color: '#6c757d' }  // gray
+        },
+        {
+            name: ((data.sentiment_distribution.Negative / total) * 100).toFixed(1) + '%',
+            value: data.sentiment_distribution.Negative,
+            itemStyle: { color: '#dc3545' }  // red
+        }
+    ];
+
+    const option = {
+        tooltip: {
+            trigger: 'item',
+            formatter: '{b}: {c} mentions'
+        },
+        series: [{
+            type: 'pie',
+            radius: '70%',
+            data: pieData,
+            label: {
+                show: true,
+                position: 'outside',
+                formatter: '{b}',
+                fontSize: 14
+            },
+            emphasis: {
+                itemStyle: {
+                    shadowBlur: 10,
+                    shadowOffsetX: 0,
+                    shadowColor: 'rgba(0, 0, 0, 0.5)'
+                }
+            }
+        }]
+    };
+
+    chart.setOption(option);
+    return chart;
+}
