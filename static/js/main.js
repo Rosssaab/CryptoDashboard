@@ -113,7 +113,42 @@ async function updatePredictions() {
                 }
 
                 .two-lines {
-                    white-space: pre-line;  /* Allow line breaks */
+                    white-space: pre-line;
+                }
+
+                /* Price When Predicted and Price Now column styling */
+                .predictions-table th:nth-child(3),
+                .predictions-table td:nth-child(3),
+                .predictions-table th:nth-child(4),
+                .predictions-table td:nth-child(4) {
+                    background-color: #f4f4f4;
+                    color: #333;
+                    font-weight: 500;
+                }
+
+                /* Prediction columns styling (24h, 7d, 30d, 90d) */
+                .predictions-table th:nth-child(5),
+                .predictions-table td:nth-child(5),
+                .predictions-table th:nth-child(7),
+                .predictions-table td:nth-child(7),
+                .predictions-table th:nth-child(9),
+                .predictions-table td:nth-child(9),
+                .predictions-table th:nth-child(11),
+                .predictions-table td:nth-child(11) {
+                    background-color: #fffff0;
+                    color: #333;
+                    font-weight: 500;
+                }
+
+                /* Ensure the background covers the entire cell */
+                .predictions-table td:nth-child(3),
+                .predictions-table td:nth-child(4),
+                .predictions-table td:nth-child(5),
+                .predictions-table td:nth-child(7),
+                .predictions-table td:nth-child(9),
+                .predictions-table td:nth-child(11) {
+                    position: relative;
+                    z-index: 1;
                 }
             </style>
             <table class="table table-hover predictions-table">
@@ -122,6 +157,7 @@ async function updatePredictions() {
                         <th><div>Prediction Date</div></th>
                         <th><div>Symbol</div></th>
                         <th><div class="two-lines">Price When\nPredicted</div></th>
+                        <th><div class="two-lines">Price\nNow</div></th>
                         <th><div>Prediction 24h</div></th>
                         <th><div>Actual 24h</div></th>
                         <th><div>Predicted 7d</div></th>
@@ -139,11 +175,16 @@ async function updatePredictions() {
         `;
 
         data.predictions.forEach(p => {
+            const date = new Date(p.PredictionDate);
+            const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
+            const hour = date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: true });
+            
             html += `
                 <tr>
-                    <td>${formatDateTime(p.PredictionDate)}</td>
+                    <td>${dayOfWeek} ${hour}</td>
                     <td>${p.Symbol}</td>
                     <td>${p['Price When Predicted']?.toFixed(6) || 'N/A'}</td>
+                    <td>${p['Price Now']?.toFixed(6) || 'N/A'}</td>
                     <td>${p['Prediction 24h']?.toFixed(6) || 'N/A'}</td>
                     <td>${p['Actual 24h']?.toFixed(6) || 'N/A'}</td>
                     <td>${p['Predicted 7d']?.toFixed(6) || 'N/A'}</td>
