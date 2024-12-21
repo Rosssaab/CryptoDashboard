@@ -14,28 +14,27 @@ async function openTab(evt, tabName) {
             tabcontent[i].style.display = "none";
         }
 
-        // Remove active class from tabs
-        const tablinks = document.getElementsByClassName("tablinks");
+        // Remove active class from all tabs
+        const tablinks = document.getElementsByClassName("nav-link");
         for (let i = 0; i < tablinks.length; i++) {
-            tablinks[i].className = tablinks[i].className.replace(" active", "");
+            tablinks[i].classList.remove("active");
+            tablinks[i].classList.remove("bg-secondary");  // Remove dark background
+            tablinks[i].classList.remove("text-white");    // Remove white text
         }
 
         // Show current tab and mark it active
         document.getElementById(tabName).style.display = "block";
-        evt.currentTarget.className += " active";
+        evt.currentTarget.classList.add("active");
+        evt.currentTarget.classList.add("bg-secondary");   // Add dark background to active tab
+        evt.currentTarget.classList.add("text-white");     // Add white text to active tab
 
         // Initialize data based on tab
         if (tabName === 'DataLoads') {
-            // Ensure the chat data content is collapsed initially
-            const chatDataContent = document.getElementById('chatDataContent');
-            if (chatDataContent) {
-                chatDataContent.classList.remove('show');
-            }
             await updateDataLoads();
         } else if (tabName === 'Predictions') {
             await initializePredictions();
         } else if (tabName === 'Sentiment') {
-            await initializeSentiment();
+            await updateSentimentChart();
         } else if (tabName === 'Mentions') {
             await updateMentionsCharts();
         } else if (tabName === 'Price') {
@@ -304,7 +303,6 @@ async function updateMentionsCharts() {
                     }
                 },
                 annotations: [
-                    // Coin symbol in center
                     {
                         text: coin.symbol,
                         x: 0.5,
@@ -313,9 +311,9 @@ async function updateMentionsCharts() {
                             size: 24,
                             color: '#000'
                         },
-                        showarrow: false
+                        showarrow: false,
+                        opacity: 0
                     },
-                    // Mention count above chart
                     {
                         text: `${total} mentions`,
                         x: 0.5,
@@ -327,7 +325,8 @@ async function updateMentionsCharts() {
                             color: '#666'
                         },
                         showarrow: false,
-                        id: `mentions-${coin.symbol}`  // Add ID for hover updates
+                        id: `mentions-${coin.symbol}`,
+                        opacity: 0
                     }
                 ],
                 shapes: [
@@ -347,14 +346,39 @@ async function updateMentionsCharts() {
                 ]
             };
 
+            // First create the plot
             Plotly.newPlot(chartDiv, [pieData], layout, {
                 displayModeBar: false,
                 responsive: true
+            }).then(() => {
+                // Then animate elements in
+                setTimeout(() => {
+                    Plotly.animate(chartDiv, {
+                        data: [{
+                            type: 'pie',
+                            hole: 0.6,
+                            values: pieData.values,
+                            rotation: 45
+                        }],
+                        layout: {
+                            'annotations[0].opacity': 1,
+                            'annotations[1].opacity': 1
+                        }
+                    }, {
+                        transition: {
+                            duration: 1000,
+                            easing: 'cubic-in-out'
+                        },
+                        frame: {
+                            duration: 500,
+                            redraw: true
+                        }
+                    });
+                }, 100);
             });
 
             // Add hover events
             chartDiv.on('plotly_hover', () => {
-                const mentionsAnnotation = layout.annotations[1];
                 Plotly.relayout(chartDiv, {
                     'annotations[1].font.weight': 'bold'
                 });
